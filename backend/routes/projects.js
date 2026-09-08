@@ -82,6 +82,24 @@ router.get("/", async (req, res) => {
   return res.json({ projects });
 });
 
+router.get("/:id", authorizeRoles("manager", "admin"), async (req, res) => {
+  const { id } = req.params;
+  const db = getSupabaseAdmin();
+
+  if (req.auth.user.role === "manager") {
+    try {
+      await requireManagerProjectAccess(db, id, req.auth.user.id);
+    } catch (e) {
+      return res.status(e.status || 400).json({ error: e.message || "Forbidden" });
+    }
+  }
+
+  const { data, error } = await db.from("projects").select("*").eq("id", id).maybeSingle();
+  if (error) return res.status(400).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: "Project not found" });
+  return res.json({ project: data });
+});
+
 router.post("/", authorizeRoles("manager"), async (req, res) => {
   const { title, description, ai_check_enabled, plagiarism_check_enabled, manager_ids } = req.body || {};
   if (!title) return res.status(400).json({ error: "title is required" });

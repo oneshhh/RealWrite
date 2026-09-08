@@ -167,6 +167,9 @@ async function syncRequestArticleProgress(db, { request, writerId, articleId, ar
 router.get("/", async (req, res) => {
   const db = getSupabaseAdmin();
   const user = req.auth.user;
+  const status = req.query.status ? String(req.query.status).trim().toLowerCase() : null;
+  const validStatuses = new Set(["draft", "submitted", "approved", "rejected", "rework"]);
+  if (status && !validStatuses.has(status)) return res.status(400).json({ error: "Invalid article status" });
   const limitRaw = req.query.limit;
   const offsetRaw = req.query.offset;
   const limit = limitRaw === undefined ? null : Number(limitRaw);
@@ -179,8 +182,9 @@ router.get("/", async (req, res) => {
     let q = db
       .from("articles")
       .select("*", { count: "exact" })
-      .eq("writer_id", user.id)
-      .order("updated_at", { ascending: false });
+      .eq("writer_id", user.id);
+    if (status) q = q.eq("status", status);
+    q = q.order("updated_at", { ascending: false });
     if (usePaging) q = q.range(rangeFrom, rangeTo);
     const { data, error, count } = await q;
     if (error) return res.status(400).json({ error: error.message });
@@ -200,8 +204,9 @@ router.get("/", async (req, res) => {
     let q = db
       .from("articles")
       .select("*", { count: "exact" })
-      .in("project_id", projectIds)
-      .order("submitted_at", { ascending: false, nullsFirst: false });
+      .in("project_id", projectIds);
+    if (status) q = q.eq("status", status);
+    q = q.order("submitted_at", { ascending: false, nullsFirst: false });
     if (usePaging) q = q.range(rangeFrom, rangeTo);
     const { data, error, count } = await q;
     if (error) return res.status(400).json({ error: error.message });
@@ -214,7 +219,9 @@ router.get("/", async (req, res) => {
   }
 
   // admin
-  let q = db.from("articles").select("*", { count: "exact" }).order("created_at", { ascending: false });
+  let q = db.from("articles").select("*", { count: "exact" });
+  if (status) q = q.eq("status", status);
+  q = q.order("created_at", { ascending: false });
   if (usePaging) q = q.range(rangeFrom, rangeTo);
   const { data, error, count } = await q;
   if (error) return res.status(400).json({ error: error.message });

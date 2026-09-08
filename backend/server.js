@@ -6,7 +6,7 @@ require("dotenv").config();
 require("./utils/runtimeConfig").loadRuntimeConfigIntoEnv();
 
 const { authenticate } = require("./middleware/authenticate");
-const { ensureAppReady, getSetupState } = require("./services/appSetup");
+const { ensureAppReady, getSetupState, hasApplicationConfig } = require("./services/appSetup");
 
 const authRoutes = require("./routes/auth");
 const setupRoutes = require("./routes/setup");
@@ -93,18 +93,15 @@ app.get("/health", async (_req, res) => {
 
 app.use("/api/setup", setupRoutes);
 
-app.use("/api", async (req, res, next) => {
-  try {
-    if (req.path.startsWith("/setup")) return next();
-    const state = await ensureAppReady();
-    if (state.ready) return next();
-    return res.status(503).json({
-      error: "The application setup is incomplete. Finish setup at /setup.html before using the API.",
-      setup_required: true
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || "Setup status unavailable" });
-  }
+// Keep schema creation and deep readiness checks out of the request hot path.
+// They still run during explicit setup, health checks, and local server startup.
+app.use("/api", (req, res, next) => {
+  if (req.path.startsWith("/setup")) return next();
+  if (hasApplicationConfig()) return next();
+  return res.status(503).json({
+    error: "The application setup is incomplete. Finish setup at /setup.html before using the API.",
+    setup_required: true
+  });
 });
 
 app.use("/api/auth", authenticate.optional, authRoutes);

@@ -3,6 +3,11 @@ const { bootstrapAdmin, configureApplication, ensureAppReady, getSetupState } = 
 
 const router = express.Router();
 
+router.get("/meta", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  return res.json({ app_name: String(process.env.APP_NAME || "Real Write").trim() || "Real Write" });
+});
+
 router.get("/status", async (_req, res) => {
   try {
     const state = await getSetupState({ refresh: true });

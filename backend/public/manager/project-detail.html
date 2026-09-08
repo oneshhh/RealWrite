@@ -272,6 +272,8 @@
         let allManagers = [];
         let activeManagers = [];
         let assignedWriters = [];
+        let assignedWritersLoaded = false;
+        let settingsDataLoaded = false;
         let activeMonth = currentMonthKey();
         let availableMonths = [];
 
@@ -309,8 +311,8 @@
         }
 
         async function loadProject() {
-          const projects = await APP.apiFetch("/api/projects");
-          project = (projects.projects || []).find((p) => p.id === id);
+          const out = await APP.apiFetch(`/api/projects/${encodeURIComponent(id)}`);
+          project = out.project || null;
           if (!project) throw new Error("Project not found.");
           document.getElementById("projectHeading").textContent = project.title || "Project";
           document.getElementById("projectMeta").textContent = `${project.status || "active"} - ${project.created_at ? new Date(project.created_at).toLocaleString() : ""}`;
@@ -326,6 +328,7 @@
           const writers = await APP.apiFetch(`/api/projects/${encodeURIComponent(id)}/writers`);
           const assigned = writers.writers || [];
           assignedWriters = assigned;
+          assignedWritersLoaded = true;
           window.__assignedWriters = new Map(assigned.map((w) => [w.writer_id, w]));
           document.getElementById("rows").innerHTML = assigned.length
             ? assigned
@@ -382,6 +385,10 @@
           }
         }
 
+        async function ensureAssignedWriters() {
+          if (!assignedWritersLoaded) await refreshAssigned();
+        }
+
         async function refreshRequests() {
           APP.ui.tableSkeleton("requestRows", { rows: 5, cols: 6 });
           const out = await APP.apiFetch(`/api/requests?project_id=${encodeURIComponent(id)}`);
@@ -424,6 +431,12 @@
         }
 
         async function openRequestDialog() {
+          try {
+            await ensureAssignedWriters();
+          } catch (e) {
+            msg(e.message || String(e));
+            return false;
+          }
           const dlg = document.getElementById("requestDlg");
           const scope = document.getElementById("reqScope");
           const writerWrap = document.getElementById("reqWriterWrap");
@@ -788,9 +801,19 @@
           }
         };
 
-        document.getElementById("toggleSettings").onclick = () => {
-          document.getElementById("projectSettingsCard").classList.toggle("hidden");
+        document.getElementById("toggleSettings").onclick = async () => {
+          const settingsCard = document.getElementById("projectSettingsCard");
+          const opening = settingsCard.classList.contains("hidden");
+          settingsCard.classList.toggle("hidden");
           document.getElementById("assignedWritersCard").classList.toggle("hidden");
+          if (!opening || settingsDataLoaded) return;
+          try {
+            await ensureAssignedWriters();
+            await Promise.all([loadWriters(""), loadManagers("")]);
+            settingsDataLoaded = true;
+          } catch (e) {
+            msg(e.message || String(e));
+          }
         };
         document.getElementById("raiseRequest").onclick = openRequestDialog;
         document.getElementById("raiseRequestInline").onclick = openRequestDialog;
@@ -811,8 +834,7 @@
         try {
           msg("");
           syncMonthSelect();
-          await Promise.all([loadProject(), refreshAssigned(), refreshManagers(), loadArticleMonth(), refreshRequests()]);
-          await Promise.all([loadWriters(""), loadManagers("")]);
+          await Promise.all([loadProject(), refreshManagers(), loadArticleMonth(), refreshRequests()]);
         } catch (e) {
           msg(e.message || String(e));
         }

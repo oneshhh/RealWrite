@@ -160,8 +160,8 @@
         async function refresh() {
           renderQueueSkeleton();
           emptyQueue.classList.add("hidden");
-          const list = await APP.apiFetch("/api/articles");
-          const submitted = (list.articles || []).filter((a) => a.status === "submitted");
+          const list = await APP.apiFetch("/api/articles?status=submitted");
+          const submitted = list.articles || [];
           queueCount.textContent = `${submitted.length} article${submitted.length === 1 ? "" : "s"} waiting`;
           emptyQueue.classList.toggle("hidden", submitted.length !== 0);
           queueRows.innerHTML = submitted

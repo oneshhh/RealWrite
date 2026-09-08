@@ -51,6 +51,10 @@ function hasSupabaseConfig() {
   return Boolean(trimOrNull(process.env.SUPABASE_URL) && trimOrNull(process.env.SUPABASE_ANON_KEY) && trimOrNull(process.env.SUPABASE_SERVICE_ROLE_KEY));
 }
 
+function hasApplicationConfig() {
+  return hasSupabaseConfig();
+}
+
 function hasDatabaseConfig() {
   if (trimOrNull(process.env.DATABASE_URL)) return true;
   return Boolean(
@@ -505,6 +509,7 @@ module.exports = {
   createPaymentProofBucket,
   ensureAppReady,
   getSetupState,
+  hasApplicationConfig,
   invalidateSetupState,
   updateApplicationSettings
 };

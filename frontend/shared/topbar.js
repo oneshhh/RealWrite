@@ -1,26 +1,37 @@
 /* global APP */
 
 const BADGE_POLL_MS = 15000;
+const BACKGROUND_FETCH_DELAY_MS = 1200;
+const APP_NAME_CACHE_KEY = "rwAppName";
 let cachedAppName = null;
 
-async function resolveAppName() {
+function resolveAppName() {
   if (cachedAppName) return cachedAppName;
   const fallback = window.APP_CONFIG?.appName || "Real Write";
   try {
-    const res = await fetch("/api/setup/status", { cache: "no-store", credentials: "include" });
-    const body = await res.json().catch(() => ({}));
-    cachedAppName = String(body?.app_name || fallback).trim() || fallback;
-    return cachedAppName;
+    cachedAppName = String(sessionStorage.getItem(APP_NAME_CACHE_KEY) || fallback).trim() || fallback;
   } catch {
     cachedAppName = fallback;
-    return cachedAppName;
   }
+  return cachedAppName;
+}
+
+async function refreshAppName(fallback) {
+  const res = await fetch("/api/setup/meta", { credentials: "include" });
+  if (!res.ok) return fallback;
+  const body = await res.json().catch(() => ({}));
+  const nextName = String(body?.app_name || fallback).trim() || fallback;
+  cachedAppName = nextName;
+  try {
+    sessionStorage.setItem(APP_NAME_CACHE_KEY, nextName);
+  } catch {}
+  return nextName;
 }
 
 async function renderTopbar({ role, links }) {
   const bar = document.getElementById("topbar");
   if (!bar) return;
-  const appName = await resolveAppName();
+  const appName = resolveAppName();
 
   const guessIcon = (label, href) => {
     const l = String(label || "").toLowerCase();
@@ -89,8 +100,9 @@ async function renderTopbar({ role, links }) {
     .filter(Boolean);
   const pageTitle = titleParts.length ? titleParts[titleParts.length - 1] : rawTitle;
   const roleTitle = role ? `${String(role).charAt(0).toUpperCase()}${String(role).slice(1)} ` : "";
-  const headerTitle =
-    titleParts.length > 1 && pageTitle ? `${appName} - ${roleTitle}${pageTitle}`.trim() : pageTitle || "Dashboard";
+  const buildHeaderTitle = (name) =>
+    titleParts.length > 1 && pageTitle ? `${name} - ${roleTitle}${pageTitle}`.trim() : pageTitle || "Dashboard";
+  const headerTitle = buildHeaderTitle(appName);
   const notificationsHref = role ? `/${encodeURIComponent(role)}/notifications.html` : "/shared/notifications.html";
   const navLinks = mergeLinks(standardLinksByRole[role] || [], links || []);
   navLinks.push({ href: notificationsHref, label: "Notifications", icon: "notifications" });
@@ -160,6 +172,26 @@ async function renderTopbar({ role, links }) {
     </header>
   `;
 
+  setTimeout(() => {
+    refreshAppName(appName)
+      .then((nextName) => {
+        if (!nextName || nextName === appName) return;
+        const brand = bar.querySelector(".rw-brand");
+        const brandName = bar.querySelector(".rw-brand-name");
+        const brandLogo = bar.querySelector(".rw-brand-logo");
+        const pageHeading = bar.querySelector(".rw-header-title");
+        if (brand) brand.setAttribute("aria-label", `${nextName} home`);
+        if (brandName) brandName.textContent = nextName;
+        if (brandLogo) brandLogo.alt = `${nextName} logo`;
+        if (pageHeading) {
+          const nextHeaderTitle = buildHeaderTitle(nextName);
+          pageHeading.textContent = nextHeaderTitle;
+          pageHeading.title = nextHeaderTitle;
+        }
+      })
+      .catch(() => {});
+  }, BACKGROUND_FETCH_DELAY_MS);
+
   const logoutBtn = document.getElementById("rwLogout");
   if (logoutBtn && role) {
     logoutBtn.onclick = (e) => {
@@ -223,7 +255,7 @@ async function renderTopbar({ role, links }) {
           polling = false;
         });
     };
-    pollNotifications();
+    setTimeout(pollNotifications, BACKGROUND_FETCH_DELAY_MS);
     if (window.__rwNotificationBadgePoll) clearInterval(window.__rwNotificationBadgePoll);
     window.__rwNotificationBadgePoll = setInterval(pollNotifications, BADGE_POLL_MS);
   }
@@ -262,7 +294,7 @@ async function renderTopbar({ role, links }) {
         polling = false;
       });
     };
-    pollMessages();
+    setTimeout(pollMessages, BACKGROUND_FETCH_DELAY_MS + 150);
     if (window.__rwMessageBadgePoll) clearInterval(window.__rwMessageBadgePoll);
     window.__rwMessageBadgePoll = setInterval(pollMessages, BADGE_POLL_MS);
   }
