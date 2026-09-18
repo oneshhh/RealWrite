@@ -1,279 +1,298 @@
 # Real Write
 
-Real Write is a self-hosted editorial operations platform for writing agencies, content studios, and internal publishing teams. It combines project intake, writer assignment, article review, payments, calendar planning, messaging, and export workflows in one application.
+Real Write is an open-source content operations dashboard for teams that manage writers, article requests, editorial reviews, AI checks, plagiarism checks, calendars, messaging, exports, and writer payments.
 
-The repository is designed so another team can clone it, connect their own Supabase and PostgreSQL environment, create the first admin account, and run the product on their own infrastructure.
+It is built for writing agencies, content studios, and internal publishing teams that need one self-hosted place to move an article from assignment to approval to payment.
 
-## What The Application Does
+![Real Write product poster](docs/screenshots/realwrite-hero.png)
 
-Real Write helps writing teams manage the full article lifecycle:
+## Why Real Write Exists
 
-- Admins manage the workspace, users, projects, and payment oversight.
-- Managers create projects, invite writers, issue article requests, review submissions, approve or reject drafts, track due dates, and communicate with contributors.
-- Writers receive assignments, submit articles, use the built-in editor, follow deadlines on the calendar, and review payment history.
+Content teams often manage writers across spreadsheets, chats, docs, payment notes, and review queues. Real Write brings those workflows into one application so managers can see what is requested, what is submitted, what needs review, what has been paid, and where each writer stands.
 
-## Core Features
+The project is designed to be cloned, connected to your own Supabase and PostgreSQL environment, and run on your own infrastructure.
 
-- Multi-role workspace with separate admin, manager, and writer experiences
-- Project creation and writer assignment
-- Article submission and editorial review queue
-- Manager notes, approval/rework states, and export workflows
-- Payment tracking and proof uploads
-- Shared calendar with request deadlines and notes
-- Internal project and person-to-person messaging
-- Optional AI detection via Hugging Face
-- Built-in plagiarism similarity checks against articles already stored in the workspace
-- First-run setup flow for configuration, schema bootstrap, and admin creation
+## Features
+
+- Multi-role workspace for admins, managers, and writers
+- Project creation, manager assignment, and writer assignment
+- Article request flow with deadlines and instructions
+- Writer submission flow with built-in article editor
+- Manager review queue with approval and rework states
+- Article export workflows
+- Writer payment tracking and payment proof uploads
+- Calendar notes and deadline visibility
+- Project messaging and person-to-person messaging
+- Optional AI-likeness checking through Hugging Face
+- Built-in plagiarism-style similarity checks against articles already stored in the workspace
+- First-run setup page for environment configuration and admin bootstrap
+
+## Demo And Screenshots
+
+The screenshots below show the main workflow: create projects, raise article requests, review submissions, run checks, export drafts, and track payments.
+
+### Project Requests
+
+Managers can create projects, raise article requests, assign writers, and coordinate project access from one place.
+
+![Project requests and manager access](docs/screenshots/project-requests.png)
+
+### Review Queue
+
+Managers can open submitted drafts, read the full article, run AI and plagiarism checks, and export approved work.
+
+![Article review with AI and plagiarism checks](docs/screenshots/review-checks.png)
+
+### Payments
+
+Real Write tracks paid and pending balances, payment counts, and project payment trends.
+
+![Payments overview with totals and trend chart](docs/screenshots/payments-overview.png)
+
+### Payment History
+
+Managers can filter payments by project, writer, and date range, then mark completed payouts as paid.
+
+![Payment history table](docs/screenshots/payment-history.png)
+
+Demo flow:
+
+```text
+Create project -> assign writer -> request article -> submit draft -> run checks -> approve -> mark paid
+```
+
+## Tech Stack
+
+- Node.js
+- Express
+- Supabase Auth
+- Supabase Storage
+- PostgreSQL
+- Static HTML, CSS, and JavaScript frontend
 
 ## Architecture
 
-- `backend/`: Express application, API routes, setup/bootstrap logic, exports, and integrations
-- `frontend/`: source HTML/CSS/JS for the static UI
-- `backend/public/`: deployable static copy used by the backend server and production hosting
+```text
+backend/
+  api/          Serverless/API entrypoints
+  db/           Database bootstrap and schema helpers
+  middleware/   Authentication and request middleware
+  models/       Data access helpers
+  public/       Deployable static frontend served by the backend
+  routes/       Express route modules
+  services/     AI, plagiarism, export, setup, and domain services
+  tools/        Backend maintenance utilities
+  utils/        Shared backend helpers
 
-The current implementation is built around:
+frontend/
+  admin/        Admin workspace pages
+  assets/       Shared CSS and images
+  manager/      Manager workspace pages
+  shared/       Shared browser-side utilities
+  writer/       Writer workspace pages
+```
 
-- Supabase Auth for sign-in and session handling
-- Supabase Storage for uploaded payment proof files
-- PostgreSQL for application tables
-
-## Supported Deployment Model
-
-This codebase currently supports:
-
-- Hosted Supabase
-- Self-hosted Supabase
-- Local Supabase or PostgreSQL-based development setups
-
-Important limitation:
-
-- This is not a generic multi-database application yet. It is built for Supabase plus PostgreSQL. MySQL, MariaDB, SQLite, and other database engines are not wired in as interchangeable backends.
-
-That means an adopter should bring:
-
-- Their own Supabase project or self-hosted Supabase stack
-- A PostgreSQL connection for the application schema
-- An optional Hugging Face token if they want hosted AI detection
-
-## First-Run Bootstrap
-
-The application now supports a first-run setup experience.
-
-On startup, if valid database and Supabase credentials are available, the backend can:
-
-- Create the required application tables automatically
-- Ensure the `payment-proofs` storage bucket exists
-- Create the first admin account from bootstrap environment variables
-
-If credentials are not fully configured yet, the app sends the user to `/setup.html`, where they can:
-
-- Enter the application URL and CORS origins
-- Connect their own Supabase project
-- Provide PostgreSQL connection details
-- Optionally configure AI detection
-- Create the first admin account
+The editable frontend source lives in `frontend/`. The backend serves the production static copy from `backend/public/`, so keep those folders in sync when changing UI files.
 
 ## Requirements
 
 - Node.js 18 or newer
-- A Supabase project or self-hosted Supabase stack
-- PostgreSQL credentials for the target database
+- Supabase project or self-hosted Supabase stack
+- PostgreSQL database
+- Optional Hugging Face API token for hosted AI detection
 
-## Installation
+## Quick Start
 
-1. Clone the repository.
-2. Install backend dependencies:
+Install backend dependencies:
 
 ```bash
 npm --prefix backend install
 ```
 
-3. Choose one of these setup styles:
+Create environment configuration:
 
-- Environment-first deployment: configure `backend/.env` from `backend/.env.example`
-- UI-first deployment: start the server first and complete `/setup.html`
+```bash
+copy backend\.env.example backend\.env
+```
 
-4. Start the backend:
+Start the application:
 
 ```bash
 npm --prefix backend start
 ```
 
-5. Open the app in your browser:
+Open:
 
-- Local default: `http://localhost:3000`
-- First-run setup page: `http://localhost:3000/setup.html`
+```text
+http://localhost:3000
+```
 
-## Environment Variables
+If the app is not configured yet, open:
 
-Copy `backend/.env.example` to `backend/.env` if you want to manage configuration directly through environment variables.
+```text
+http://localhost:3000/setup.html
+```
 
-### Required
+## Configuration
 
-- `SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_ANON_KEY`: Public anon key
-- `SUPABASE_SERVICE_ROLE_KEY`: Service role key used by the backend
-- `DATABASE_URL`: Full PostgreSQL connection string
+The app can be configured through environment variables or through the first-run setup page.
 
-Or, instead of `DATABASE_URL`, provide all of:
+Required environment variables:
 
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_NAME`
+```text
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+DATABASE_URL
+```
 
-### Recommended
+Instead of `DATABASE_URL`, you can provide:
 
-- `APP_NAME`: Workspace name shown in setup/bootstrap-related flows
-- `APP_URL`: Public application URL
-- `CORS_ORIGINS`: Comma-separated allowed origins
-- `SUPABASE_JWT_AUD`: Usually `authenticated`
+```text
+DB_HOST
+DB_PORT
+DB_USER
+DB_PASSWORD
+DB_NAME
+```
 
-### Optional
+Recommended variables:
 
-- `DB_SSL`: `true`, `false`, or `require`
-- `HUGGINGFACE_API_TOKEN`: Enables hosted AI detection
-- `AI_DETECTOR_MODEL`: Override the default Hugging Face model
-- `DEPLOY_TOKEN`: Optional deploy route protection
+```text
+APP_NAME
+APP_URL
+CORS_ORIGINS
+SUPABASE_JWT_AUD
+```
 
-### Optional Admin Bootstrap
+Optional variables:
 
-If you want the first admin account created automatically during startup, set:
+```text
+DB_SSL
+HUGGINGFACE_API_TOKEN
+AI_DETECTOR_MODEL
+DEPLOY_TOKEN
+```
 
-- `BOOTSTRAP_ADMIN_FULL_NAME`
-- `BOOTSTRAP_ADMIN_EMAIL`
-- `BOOTSTRAP_ADMIN_PASSWORD`
+Optional admin bootstrap variables:
 
-## Setup UI And Secret Storage
+```text
+BOOTSTRAP_ADMIN_FULL_NAME
+BOOTSTRAP_ADMIN_EMAIL
+BOOTSTRAP_ADMIN_PASSWORD
+```
 
-The setup page can save configuration into:
+## First-Run Setup
 
-- `backend/.runtime-config.json`
+Real Write includes a setup page at `/setup.html`.
 
-This is useful for local installation and simpler self-hosting, but it contains secrets. The file is ignored by Git and should remain private to the deployment server.
+The setup flow can:
 
-For production environments, environment variables are the safer long-term option.
-
-## How To Run It For A Writing Agency
-
-### 1. Create The Workspace
-
-- Connect your Supabase and PostgreSQL environment
+- Save application configuration
+- Connect Supabase
+- Connect PostgreSQL
+- Prepare the application schema
 - Create the first admin account
-- Sign in as the admin
+- Configure optional AI detection
 
-### 2. Create The Team
+For local and simple self-hosted installs, setup values may be saved to:
 
-- Add managers and writers
-- Assign the correct role for each person
-- Keep inactive users disabled rather than deleting historical ownership
+```text
+backend/.runtime-config.json
+```
 
-### 3. Organize Projects
+That file contains secrets and should stay private. For production, environment variables are the safer long-term option.
 
-- Create a project for each client, brand, or publication stream
-- Assign managers to oversee delivery
-- Add writers to the relevant project rooms
-
-### 4. Manage Editorial Requests
-
-- Managers create requests and deadlines
-- Writers can see their work pipeline
-- Calendar pages surface due dates and planning notes
-
-### 5. Review Submissions
-
-- Writers submit drafts through the editor flow
-- Managers review submissions from the queue
-- Approve, request rework, or export the final article
-
-### 6. Track Payments
-
-- Mark articles or requests as paid
-- Upload and store payment proof documents
-- Give writers a transparent payment history
-
-### 7. Use Messaging And Calendar Tools
-
-- Messaging supports project coordination and direct communication
-- Calendar views give managers and writers a shared schedule of approvals, requests, and notes
-
-## AI Detection And Plagiarism
+## AI Detection And Plagiarism Checks
 
 AI detection is optional.
 
-- If a Hugging Face token is configured, the backend will use the configured model
-- If no token is available or the hosted model fails, the app falls back to a heuristic check
+If `HUGGINGFACE_API_TOKEN` is configured, the backend can call the configured Hugging Face model. If the hosted model is unavailable, the app can fall back to a lighter heuristic check.
 
-Plagiarism checking is also optional from an operations perspective.
+Plagiarism checking does not require a third-party plagiarism API. The current checker compares submitted articles against articles already stored in the workspace database and reports similarity signals.
 
-- It does not require a separate third-party plagiarism service
-- It compares submitted work against articles already stored in the application database
+## Typical Workflow
 
-## Database Bootstrap Behavior
+1. Admin connects Supabase and PostgreSQL.
+2. Admin creates manager and writer accounts.
+3. Manager creates a project.
+4. Manager assigns writers to the project.
+5. Manager creates article requests with deadlines.
+6. Writer submits drafts through the writer dashboard.
+7. Manager reviews, approves, requests rework, or exports the draft.
+8. Manager tracks payment and uploads payment proof.
+9. Writers can review their submission and payment history.
 
-On startup, the backend ensures the application schema exists when valid database credentials are available. This makes a fresh deployment easier because adopters do not need to run the full core schema by hand before first use.
+## Roadmap
 
-The automatic bootstrap creates the tables the application depends on, including:
+- Add polished public screenshots and a short demo video
+- Add a hosted demo environment with sample data
+- Add stronger AI detection provider options
+- Add more advanced plagiarism provider integrations
+- Add richer analytics for managers and admins
+- Add contributor-friendly seed data
+- Add automated end-to-end test coverage
+- Add Docker-based self-hosting instructions
 
-- users
-- projects
-- project managers and writer mappings
-- project requests
-- articles
-- payments
-- notifications
-- calendar notes
-- encrypted messages
+## Good First Issues
 
-## Deployment Notes
+Good starter tasks for contributors:
 
-- The simplest deployment is to run the Express server and serve the static UI from the same host
-- You can deploy behind Nginx, Caddy, PM2, Docker, or another Node-compatible process manager
-- If you host behind HTTPS in production, keep `APP_URL` and `CORS_ORIGINS` aligned with the public origin
-- Protect the `backend/.runtime-config.json` file if you use the setup page in production
+- Add screenshots to `docs/screenshots/`
+- Improve setup documentation for self-hosting
+- Add seed/sample data for demo environments
+- Add UI empty states for dashboards
+- Add automated tests for article review routes
+- Add Docker Compose instructions
+- Improve accessibility labels in frontend pages
 
-## Repository Structure
+When you open GitHub issues, label these with `good first issue`.
 
-```text
-backend/
-  db/
-  middleware/
-  public/
-  routes/
-  services/
-  utils/
-frontend/
-  admin/
-  assets/
-  manager/
-  shared/
-  writer/
-```
+## Contributing
 
-## Development Notes
+Contributions are welcome once the repository is public.
 
-- `frontend/` is the editable source for the UI
-- `backend/public/` is the deployable static copy used by the backend
-- When updating shared UI pages, keep the deployable `backend/public/` copy in sync
+Recommended contribution flow:
 
-## Known Scope Boundary
+1. Open an issue describing the bug or feature.
+2. Fork the repository.
+3. Create a focused branch.
+4. Make the smallest useful change.
+5. Test the affected workflow.
+6. Open a pull request with screenshots or notes when UI behavior changes.
 
-This repository is ready to be open-sourced for teams that want a Supabase plus PostgreSQL editorial operations app.
+## Security Notes
 
-If you later want true bring-your-own-database support across multiple engines, that would require a deeper abstraction layer across:
+Before deploying or publishing your fork:
 
-- authentication
-- storage
-- data access
-- schema migrations
-- background integrations
+- Remove real project data
+- Check for secrets in `.env` files and runtime config files
+- Protect Supabase service role keys
+- Keep `backend/.runtime-config.json` private
+- Configure `APP_URL` and `CORS_ORIGINS` for your production domain
 
-## Publishing Recommendation
+## Deployment
 
-Before making the repository public, review:
+The simplest deployment is to run the Express backend and serve the static frontend from the same host.
 
-- any existing real project data
-- any checked-in secrets or API keys
-- branding text you may want to rename
-- your chosen open-source license
+Possible hosting approaches:
+
+- Node process with PM2
+- VPS behind Nginx or Caddy
+- Docker-based deployment
+- Vercel for lightweight API/static hosting, with external services for heavier AI checks
+
+## License
+
+No license file is currently included. Add a license before promoting the repository as open source. MIT is usually the simplest choice for a public application template, but choose the license that matches your goals.
+
+## Blog Ideas
+
+If you are writing about Real Write, useful technical angles include:
+
+- Why spreadsheets break down for content operations
+- How role-based dashboards shape the product architecture
+- How article review, payment tracking, and messaging connect in one workflow
+- How to add AI detection without making it the core product
+- Why self-hosting matters for agencies handling client content
+- What you learned building a Supabase-backed editorial system
