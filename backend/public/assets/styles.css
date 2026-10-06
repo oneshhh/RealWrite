@@ -3298,7 +3298,7 @@ button.planner-day {
 
 .manager-dashboard-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.72fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -3317,9 +3317,7 @@ button.planner-day {
   border-bottom: 1px solid rgba(229, 226, 225, 0.82);
 }
 
-.manager-dashboard-section-head h2,
-.manager-dashboard-quick-card h2,
-.manager-dashboard-quality-card h2 {
+.manager-dashboard-section-head h2 {
   margin: 7px 0 0;
   color: var(--rw-text);
   font-size: 22px;
@@ -3486,119 +3484,6 @@ button.planner-day {
   width: 62%;
 }
 
-.manager-dashboard-side {
-  display: grid;
-  gap: 18px;
-}
-
-.manager-dashboard-quick-card,
-.manager-dashboard-quality-card {
-  padding: 22px;
-}
-
-.manager-dashboard-quick-links {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.manager-dashboard-quick-links > a {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 6px;
-  border-bottom: 1px solid rgba(229, 226, 225, 0.76);
-  color: var(--rw-text);
-}
-
-.manager-dashboard-quick-links > a:last-child {
-  border-bottom: 0;
-}
-
-.manager-dashboard-quick-links > a:hover {
-  color: var(--rw-primary);
-}
-
-.manager-dashboard-quick-icon {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: rgba(201, 234, 220, 0.42);
-  color: var(--rw-primary);
-}
-
-.manager-dashboard-quick-icon .material-symbols-outlined {
-  font-size: 18px;
-}
-
-.manager-dashboard-quick-links strong,
-.manager-dashboard-quick-links small {
-  display: block;
-}
-
-.manager-dashboard-quick-links strong {
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.manager-dashboard-quick-links small {
-  margin-top: 3px;
-  color: var(--rw-muted);
-  font-size: 10px;
-  line-height: 1.35;
-}
-
-.manager-dashboard-quick-links > a > .material-symbols-outlined {
-  color: var(--rw-muted);
-  font-size: 18px;
-}
-
-.manager-dashboard-quality-card {
-  background: linear-gradient(145deg, rgba(235, 247, 240, 0.94), rgba(255, 255, 255, 0.92));
-  border-color: rgba(71, 100, 89, 0.22);
-}
-
-.manager-dashboard-quality-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.manager-dashboard-quality-head > strong {
-  color: var(--rw-primary);
-  font-size: 28px;
-  line-height: 1;
-  letter-spacing: -0.04em;
-}
-
-.manager-dashboard-progress {
-  height: 9px;
-  margin-top: 18px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(193, 200, 195, 0.55);
-}
-
-.manager-dashboard-progress > span {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--rw-primary-2), var(--rw-primary));
-  transition: width 360ms ease;
-}
-
-.manager-dashboard-quality-card > p {
-  margin: 10px 0 0;
-  color: var(--rw-muted);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
 .manager-dashboard-empty {
   grid-column: 1 / -1;
   min-height: 260px;
@@ -3633,16 +3518,6 @@ button.planner-day {
 
 .manager-dashboard-empty .manager-dashboard-action {
   margin-top: 8px;
-}
-
-@media (max-width: 1120px) {
-  .manager-dashboard-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .manager-dashboard-side {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 800px) {
@@ -3680,8 +3555,7 @@ button.planner-day {
     width: 100%;
   }
 
-  .manager-dashboard-projects,
-  .manager-dashboard-side {
+  .manager-dashboard-projects {
     grid-template-columns: 1fr;
   }
 
