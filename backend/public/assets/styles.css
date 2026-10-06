@@ -1308,6 +1308,11 @@ button.danger {
   gap: 24px;
 }
 
+.payments-page td.right {
+  display: table-cell;
+  text-align: right;
+}
+
 .review-page-head {
   display: flex;
   align-items: flex-start;
@@ -1720,15 +1725,19 @@ button.danger {
 }
 
 .projects-create-btn {
-  width: 100%;
+  width: calc(100% + 36px);
   min-height: 52px;
-  margin-top: 4px;
-  border-radius: 18px;
+  margin: 4px -18px -18px;
+  border-radius: 0 0 calc(var(--rw-radius) - 1px) calc(var(--rw-radius) - 1px);
 }
 
 .projects-form-msg {
   min-height: 22px;
   margin-top: 6px;
+}
+
+.projects-form-msg:empty {
+  display: none;
 }
 
 .projects-list-head {
@@ -1914,6 +1923,14 @@ button.danger {
 @media (max-width: 960px) {
   .projects-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .projects-create-btn {
+    width: calc(100% + 28px);
+    margin: 4px -14px -14px;
+    border-radius: 0 0 13px 13px;
   }
 }
 
