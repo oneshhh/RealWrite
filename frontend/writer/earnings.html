@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Writer • Earnings</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-writer-earnings-1" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
@@ -16,26 +16,38 @@
     <div class="wrap wide">
       <div class="grid">
         <div class="card">
-          <h2>This Month</h2>
+          <h2 id="summaryMonthHeading">This Month</h2>
           <div class="row">
             <div class="stat">
-              <div class="pill dot green">Paid this month</div>
+              <div class="pill dot green">Paid</div>
               <div class="n" id="nPaidMonth">0</div>
             </div>
             <div class="stat">
-              <div class="pill dot amber">Pending this month</div>
+              <div class="pill dot amber">Pending</div>
               <div class="n" id="nPendingMonth">0</div>
             </div>
             <div class="stat">
-              <div class="pill dot blue">Approved articles</div>
+              <div class="pill dot blue">Payments</div>
               <div class="n" id="nApprovedTotal">0</div>
             </div>
           </div>
-          <div class="muted" style="margin-top: 8px">Totals are based on payments created for approved articles.</div>
+          <div class="muted" style="margin-top: 8px">Totals follow the month selected in payment history.</div>
         </div>
 
         <div class="card">
-          <h2>Payment History</h2>
+          <div class="writer-payment-history-head">
+            <div>
+              <h2>Payment History</h2>
+              <p class="muted">Browse your own paid and pending payments month by month.</p>
+            </div>
+            <div class="writer-payment-month-filter" aria-label="Payment month filter">
+              <button class="secondary writer-payment-month-arrow" id="prevMonth" type="button" aria-label="Previous month">←</button>
+              <span class="pill writer-payment-month-label" id="monthLabel">This month</span>
+              <button class="secondary writer-payment-month-arrow" id="nextMonth" type="button" aria-label="Next month">→</button>
+              <button class="secondary" id="apply" type="button">Apply</button>
+              <button class="secondary" id="clear" type="button">Reset</button>
+            </div>
+          </div>
           <table class="mobile-stack-table payment-history-table">
             <thead>
               <tr>
@@ -79,33 +91,41 @@
         const pageSize = 20;
         let offset = 0;
         let total = null;
+        let currentMonth = new Date();
         const requestedPaymentId = new URLSearchParams(window.location.search).get("payment");
 
-        const startOfMonth = () => {
-          const d = new Date();
-          return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
-        };
-        const inThisMonth = (iso) => {
-          if (!iso) return false;
-          return new Date(iso).getTime() >= startOfMonth().getTime();
-        };
+        function setMonth(date) {
+          currentMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+          const label = currentMonth.toLocaleString(undefined, { month: "long", year: "numeric" });
+          document.getElementById("monthLabel").textContent = label;
+          document.getElementById("summaryMonthHeading").textContent = label;
+        }
 
-        const sum = (rows) => rows.reduce((a, p) => a + Number(p.amount || 0), 0);
+        function buildQuery({ includePaging } = { includePaging: true }) {
+          const query = new URLSearchParams();
+          if (includePaging) {
+            query.set("limit", String(pageSize));
+            query.set("offset", String(offset));
+          }
+          const from = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1, 0, 0, 0, 0);
+          const to = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1, 0, 0, 0, 0);
+          query.set("from", from.toISOString());
+          query.set("to", to.toISOString());
+          return query;
+        }
 
-        function calcAndRenderSummary(allPayments) {
-          const monthPaid = (allPayments || []).filter((p) => inThisMonth(p.created_at) && p.status === "paid");
-          const monthPending = (allPayments || []).filter((p) => inThisMonth(p.created_at) && p.status === "pending");
-          const approvedTotal = (allPayments || []).length;
-
-          const paidAmt = sum(monthPaid);
-          const pendingAmt = sum(monthPending);
-
-          document.getElementById("nPaidMonth").textContent = `₹${paidAmt.toFixed(0)}`;
-          document.getElementById("nPendingMonth").textContent = `₹${pendingAmt.toFixed(0)}`;
-          document.getElementById("nApprovedTotal").textContent = String(approvedTotal);
+        async function refreshSummary() {
+          const out = await APP.apiFetch(`/api/payments/stats?${buildQuery({ includePaging: false }).toString()}`);
+          document.getElementById("nPaidMonth").textContent = `₹${Number(out.paid_amount || 0).toFixed(0)}`;
+          document.getElementById("nPendingMonth").textContent = `₹${Number(out.pending_amount || 0).toFixed(0)}`;
+          document.getElementById("nApprovedTotal").textContent = String(out.payments_count || 0);
         }
 
         function renderRows(rows) {
+          if (!rows?.length) {
+            document.getElementById("rows").innerHTML = `<tr><td colspan="5" class="muted writer-payment-empty">No payments found for ${APP.escapeHtml(document.getElementById("monthLabel").textContent)}.</td></tr>`;
+            return;
+          }
           document.getElementById("rows").innerHTML = (rows || [])
             .map((p) => {
               const a = p.articles;
@@ -140,7 +160,7 @@
 
         function updatePager() {
           const page = Math.floor(offset / pageSize) + 1;
-          const pages = total ? Math.max(1, Math.ceil(total / pageSize)) : null;
+          const pages = total == null ? null : Math.max(1, Math.ceil(total / pageSize));
           document.getElementById("prev").disabled = offset <= 0;
           document.getElementById("next").disabled = total != null ? offset + pageSize >= total : false;
           document.getElementById("pageInfo").textContent = pages ? `Page ${page} of ${pages}` : `Page ${page}`;
@@ -148,17 +168,18 @@
 
         async function loadPage() {
           APP.ui.tableSkeleton("rows", { rows: 10, cols: 5 });
-          const out = await APP.apiFetch(`/api/payments?limit=${pageSize}&offset=${offset}`);
-          total = out.total ?? total;
+          const out = await APP.apiFetch(`/api/payments?${buildQuery({ includePaging: true }).toString()}`);
+          total = out.total ?? 0;
           renderRows(out.payments || []);
           updatePager();
         }
 
-        try {
-          // Summary (best-effort): grab the first 500 for quick totals
-          const first = await APP.apiFetch("/api/payments?limit=500&offset=0");
-          calcAndRenderSummary(first.payments || []);
+        async function refreshAll() {
+          msg("");
+          await Promise.all([refreshSummary(), loadPage()]);
+        }
 
+        try {
           document.getElementById("prev").onclick = async () => {
             offset = Math.max(0, offset - pageSize);
             await loadPage();
@@ -168,7 +189,32 @@
             await loadPage();
           };
 
-          await loadPage();
+          document.getElementById("apply").onclick = async () => {
+            offset = 0;
+            await refreshAll();
+          };
+          document.getElementById("clear").onclick = async () => {
+            setMonth(new Date());
+            offset = 0;
+            await refreshAll();
+          };
+          document.getElementById("prevMonth").onclick = async () => {
+            const date = new Date(currentMonth);
+            date.setMonth(date.getMonth() - 1);
+            setMonth(date);
+            offset = 0;
+            await refreshAll();
+          };
+          document.getElementById("nextMonth").onclick = async () => {
+            const date = new Date(currentMonth);
+            date.setMonth(date.getMonth() + 1);
+            setMonth(date);
+            offset = 0;
+            await refreshAll();
+          };
+
+          setMonth(new Date());
+          await refreshAll();
         } catch (e) {
           msg(e.message || String(e));
         }

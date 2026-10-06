@@ -1313,6 +1313,74 @@ button.danger {
   text-align: right;
 }
 
+.writer-payment-history-head {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.writer-payment-history-head h2,
+.writer-payment-history-head p {
+  margin: 0;
+}
+
+.writer-payment-history-head p {
+  margin-top: 6px;
+}
+
+.writer-payment-month-filter {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.writer-payment-month-filter > button {
+  min-height: 42px;
+}
+
+.writer-payment-month-arrow {
+  min-width: 44px;
+  padding-inline: 12px;
+}
+
+.writer-payment-month-label {
+  justify-content: center;
+  min-height: 42px;
+  min-width: 132px;
+  padding-inline: 15px;
+}
+
+.writer-payment-empty {
+  padding: 34px 18px !important;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .writer-payment-history-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .writer-payment-month-filter {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+
+  .writer-payment-month-filter #apply,
+  .writer-payment-month-filter #clear {
+    grid-column: span 3;
+    width: 100%;
+  }
+
+  .writer-payment-month-label {
+    width: 100%;
+  }
+}
+
 .review-page-head {
   display: flex;
   align-items: flex-start;
