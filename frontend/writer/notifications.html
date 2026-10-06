@@ -6,34 +6,62 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Writer • Notifications</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-writer-1" />
+    <link rel="stylesheet" href="/assets/writer-refresh.css?v=ui-20261006-writer-1" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
   </head>
   <body>
     <div class="topbar" id="topbar"></div>
-    <div class="wrap">
-      <div class="grid">
-        <div class="card">
-          <h2>Inbox</h2>
-          <table>
-            <thead><tr><th>Title</th><th>Body</th><th>When</th><th></th><th></th></tr></thead>
-            <tbody id="rows"></tbody>
-          </table>
-          <div class="muted hidden" id="msg" style="margin-top:12px"></div>
-        </div>
-      </div>
+    <div class="wrap wide writer-notifications-wrap">
+      <main class="writer-notifications-page">
+        <section class="writer-notifications-hero">
+          <div>
+            <p class="writer-page-eyebrow">Your updates</p>
+            <h1>Notifications</h1>
+            <p>Article decisions, payments, and new writing requests—all in one clear inbox.</p>
+          </div>
+          <div class="writer-notification-metrics" aria-label="Notification summary">
+            <div><span>Total</span><strong id="notificationTotal">—</strong></div>
+            <div class="unread"><span>Unread</span><strong id="notificationUnread">—</strong></div>
+            <div><span>Read</span><strong id="notificationRead">—</strong></div>
+          </div>
+        </section>
+
+        <section class="card writer-notifications-panel">
+          <div class="writer-section-head">
+            <div>
+              <p class="writer-section-kicker">Latest activity</p>
+              <h2>Inbox</h2>
+              <p>Open an update to jump directly to the related article, payment, or request.</p>
+            </div>
+            <span class="writer-section-symbol material-symbols-outlined" aria-hidden="true">notifications_active</span>
+          </div>
+          <div class="writer-table-shell">
+            <table class="mobile-stack-table writer-notifications-table">
+              <thead>
+                <tr><th>Status</th><th>Notification</th><th>Details</th><th>Category</th><th>Date</th><th>Time</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+          <div class="writer-notifications-message hidden" id="msg"></div>
+        </section>
+      </main>
     </div>
     <script>
       (async function () {
         const user = await APP.requireRole("writer");
         if (!user) return;
-        await renderTopbar({ role: user.role, links: [{ href: `/${user.role}/dashboard.html`, label: "Dashboard" }] });
+        await renderTopbar({ role: user.role, links: [] });
         let lastSignature = null;
         let lastUnread = null;
         const rows = document.getElementById("rows");
         const msg = document.getElementById("msg");
+        const notificationTotal = document.getElementById("notificationTotal");
+        const notificationUnread = document.getElementById("notificationUnread");
+        const notificationRead = document.getElementById("notificationRead");
 
         function setMessage(text) {
           msg.textContent = text || "";
@@ -41,7 +69,12 @@
         }
 
         function renderEmpty(text) {
-          rows.innerHTML = `<tr><td colspan="5" class="muted" style="padding:18px;">${APP.escapeHtml(text)}</td></tr>`;
+          rows.innerHTML = `<tr><td colspan="7" class="writer-empty-row">${APP.escapeHtml(text)}</td></tr>`;
+        }
+
+        function notificationTypeLabel(type) {
+          const value = String(type || "update").replace(/_/g, " ").trim();
+          return value ? value[0].toUpperCase() + value.slice(1) : "Update";
         }
 
         function notificationHref(n) {
@@ -81,12 +114,15 @@
           rows.innerHTML = (notifications || [])
             .map((n) => {
               const href = notificationHref(n);
+              const createdAt = new Date(n.created_at);
               return `<tr>
-              <td>${n.read ? "<span class='badge b-draft'>read</span>" : "<span class='badge b-submitted'>new</span>"} ${APP.escapeHtml(n.title)}</td>
-              <td class="muted">${APP.escapeHtml(n.body)}</td>
-              <td class="muted">${APP.escapeHtml(new Date(n.created_at).toLocaleString())}</td>
-              <td class="right">${href ? `<a href="${href}" data-open="${n.id}" data-href="${href}"><button type="button">Open</button></a>` : ""}</td>
-              <td class="right">${n.read ? "" : `<button class="secondary" data-read="${n.id}">Mark read</button>`}</td>
+              <td data-label="Status">${n.read ? "<span class='writer-notification-state is-read'><span></span>Read</span>" : "<span class='writer-notification-state is-new'><span></span>New</span>"}</td>
+              <td data-label="Notification"><strong>${APP.escapeHtml(n.title)}</strong></td>
+              <td class="writer-notification-body" data-label="Details">${APP.escapeHtml(n.body)}</td>
+              <td data-label="Category"><span class="writer-notification-type">${APP.escapeHtml(notificationTypeLabel(n.type))}</span></td>
+              <td class="muted" data-label="Date">${APP.escapeHtml(createdAt.toLocaleDateString())}</td>
+              <td class="muted" data-label="Time">${APP.escapeHtml(createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</td>
+              <td data-label="Actions"><div class="writer-notification-actions">${href ? `<a href="${href}" data-open="${n.id}" data-href="${href}"><button type="button">Open</button></a>` : ""}${n.read ? "" : `<button class="secondary" data-read="${n.id}">Mark read</button>`}</div></td>
             </tr>`;
             })
             .join("");
@@ -111,12 +147,15 @@
         async function refresh(silent) {
           if (!silent) {
             setMessage("");
-            APP.ui.tableSkeleton("rows", { rows: 10, cols: 5 });
+            APP.ui.tableSkeleton("rows", { rows: 10, cols: 7 });
           }
           const data = await APP.apiFetch("/api/notifications");
           const notifications = data.notifications || [];
           const signature = notifications.map((n) => `${n.id}:${n.read ? 1 : 0}`).join("|");
           const unread = notifications.filter((n) => !n.read).length;
+          notificationTotal.textContent = String(notifications.length);
+          notificationUnread.textContent = String(unread);
+          notificationRead.textContent = String(notifications.length - unread);
           if (signature !== lastSignature) {
             renderRows(notifications);
           }

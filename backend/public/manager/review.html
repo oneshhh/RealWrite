@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Manager • Review</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-review-project" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
@@ -117,6 +117,7 @@
         const queueCount = document.getElementById("queueCount");
         const emptyQueue = document.getElementById("emptyQueue");
         let selected = null;
+        let projectName = new Map();
 
         const params = new URLSearchParams(window.location.search);
         const openId = params.get("id");
@@ -133,6 +134,10 @@
           const uniqueId = String(article?.writer?.unique_id || "").trim();
           if (uniqueId) return uniqueId;
           return "";
+        }
+
+        function projectLabel(article) {
+          return article?.project?.title || article?.project_title || projectName.get(article?.project_id) || article?.project_id || "Project";
         }
 
         function showQueue() {
@@ -160,7 +165,11 @@
         async function refresh() {
           renderQueueSkeleton();
           emptyQueue.classList.add("hidden");
-          const list = await APP.apiFetch("/api/articles?status=submitted");
+          const [list, projectList] = await Promise.all([
+            APP.apiFetch("/api/articles?status=submitted"),
+            APP.apiFetch("/api/projects")
+          ]);
+          projectName = new Map((projectList.projects || []).map((project) => [project.id, project.title]));
           const submitted = list.articles || [];
           queueCount.textContent = `${submitted.length} article${submitted.length === 1 ? "" : "s"} waiting`;
           emptyQueue.classList.toggle("hidden", submitted.length !== 0);
@@ -168,6 +177,7 @@
             .map(
               (a) => `<article class="review-queue-item">
                 <div class="review-queue-title">${APP.escapeHtml(a.title || "Untitled")}</div>
+                <div class="review-queue-project"><span class="material-symbols-outlined" aria-hidden="true">folder_open</span><span>${APP.escapeHtml(projectLabel(a))}</span></div>
                 <div class="muted review-queue-summary">${APP.escapeHtml(a.short_description || "")}</div>
                 ${writerLabel(a) ? `<div class="muted review-queue-summary">Written by ${APP.escapeHtml(writerLabel(a))}</div>` : ""}
                 ${a.request_id ? `<div class="muted review-queue-summary">Request submission${a.request_title ? ` - ${APP.escapeHtml(a.request_title)}` : ""}</div>` : ""}

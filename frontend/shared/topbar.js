@@ -69,7 +69,6 @@ async function renderTopbar({ role, links }) {
     ],
     writer: [
       { href: "/writer/dashboard.html", label: "Dashboard", icon: "dashboard" },
-      { href: "/writer/submit.html", label: "Submit", icon: "edit" },
       { href: "/writer/earnings.html", label: "Earnings", icon: "paid" },
       { href: "/writer/calendar.html", label: "Calendar", icon: "calendar_month" },
       { href: "/writer/messages.html", label: "Messages", icon: "forum" }

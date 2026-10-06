@@ -6,88 +6,130 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Writer Dashboard</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-writer-1" />
+    <link rel="stylesheet" href="/assets/writer-refresh.css?v=ui-20261006-writer-4" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
   </head>
   <body>
     <div class="topbar" id="topbar"></div>
-    <div class="wrap wide">
-      <div class="grid">
-        <div class="card">
-          <h3 id="welcome" style="margin:0"></h3>
-          <div class="muted" style="margin-top:6px">Pick an article to edit in <code>draft</code> or <code>rework</code>, or check remarks on rejected items.</div>
-        </div>
-        <div class="card">
-          <h2>My Article Status</h2>
-          <div class="row">
-            <div class="stat">
-              <div class="pill dot green">Approved</div>
-              <div class="n" id="nApproved">0</div>
-            </div>
-            <div class="stat">
-              <div class="pill dot red">Rejected</div>
-              <div class="n" id="nRejected">0</div>
-            </div>
-            <div class="stat">
-              <div class="pill dot amber">Rework</div>
-              <div class="n" id="nRework">0</div>
-            </div>
+    <div class="wrap wide writer-dashboard-wrap">
+      <main class="writer-dashboard">
+        <section class="writer-dashboard-hero">
+          <div>
+            <p class="writer-page-eyebrow">Writer dashboard</p>
+            <h1>Welcome, <span id="writerName">Writer</span></h1>
+            <p>Track every article, pick up requested work, and keep your next story moving.</p>
           </div>
-        </div>
+          <a class="writer-primary-action" href="/writer/submit.html">
+            <span class="material-symbols-outlined" aria-hidden="true">add</span>
+            <span>New article</span>
+          </a>
+        </section>
 
-        <div class="card">
-          <div class="right">
-            <a href="/writer/submit.html"><button>New article</button></a>
+        <section class="writer-status-grid" aria-label="My article status">
+          <article class="writer-status-card approved">
+            <span class="writer-status-icon material-symbols-outlined" aria-hidden="true">task_alt</span>
+            <div><p>Approved</p><strong id="nApproved">0</strong><span>Ready and accepted</span></div>
+          </article>
+          <article class="writer-status-card submitted">
+            <span class="writer-status-icon material-symbols-outlined" aria-hidden="true">hourglass_top</span>
+            <div><p>In review</p><strong id="nSubmitted">0</strong><span>With your manager</span></div>
+          </article>
+          <article class="writer-status-card rework">
+            <span class="writer-status-icon material-symbols-outlined" aria-hidden="true">rate_review</span>
+            <div><p>Rework</p><strong id="nRework">0</strong><span>Needs another pass</span></div>
+          </article>
+          <article class="writer-status-card draft">
+            <span class="writer-status-icon material-symbols-outlined" aria-hidden="true">edit_note</span>
+            <div><p>Drafts</p><strong id="nDraft">0</strong><span>Still in progress</span></div>
+          </article>
+          <article class="writer-status-card rejected">
+            <span class="writer-status-icon material-symbols-outlined" aria-hidden="true">cancel</span>
+            <div><p>Rejected</p><strong id="nRejected">0</strong><span>Review the remarks</span></div>
+          </article>
+        </section>
+
+        <section class="card writer-dashboard-panel writer-articles-panel">
+          <div class="writer-section-head">
+            <div>
+              <p class="writer-section-kicker">Your newsroom</p>
+              <h2>My Articles</h2>
+              <p>Continue drafts, review feedback, or open completed work.</p>
+            </div>
+            <a class="writer-primary-action compact" href="/writer/submit.html">
+              <span class="material-symbols-outlined" aria-hidden="true">add</span>
+              <span>New article</span>
+            </a>
           </div>
-          <h2>My Articles</h2>
-          <table class="mobile-stack-table writer-articles-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Project</th>
-                <th>Status</th>
-                <th>AI</th>
-                <th>Plagiarism</th>
-                <th>Updated</th>
-                <th>Remark</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="rows"></tbody>
-          </table>
-          <div class="right" style="margin-top: 12px">
+          <div class="writer-table-shell">
+            <table class="mobile-stack-table writer-articles-table">
+              <colgroup>
+                <col class="writer-col-article" />
+                <col class="writer-col-project" />
+                <col class="writer-col-status" />
+                <col class="writer-col-ai" />
+                <col class="writer-col-originality" />
+                <col class="writer-col-updated" />
+                <col class="writer-col-note" />
+                <col class="writer-col-action" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Article</th>
+                  <th>Project</th>
+                  <th>Status</th>
+                  <th>AI</th>
+                  <th>Originality</th>
+                  <th>Updated</th>
+                  <th>Manager note</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+          <div class="writer-pager">
             <button class="secondary" id="prev">Previous</button>
             <span class="muted" id="pageInfo"></span>
             <button class="secondary" id="next">Next</button>
           </div>
-        </div>
+        </section>
 
-        <div class="card">
-          <h2>Writing Requests</h2>
-          <table class="mobile-stack-table">
-            <thead><tr><th>Request</th><th>Due</th><th>Extra pay</th><th>Status</th><th></th></tr></thead>
-            <tbody id="requestRows"></tbody>
-          </table>
-        </div>
-      </div>
+        <section class="card writer-dashboard-panel writer-requests-panel">
+          <div class="writer-section-head">
+            <div>
+              <p class="writer-section-kicker">From your managers</p>
+              <h2>Writing Requests</h2>
+              <p>Accept new briefs and continue articles linked to active requests.</p>
+            </div>
+            <span class="writer-section-symbol material-symbols-outlined" aria-hidden="true">assignment</span>
+          </div>
+          <div class="writer-table-shell">
+            <table class="mobile-stack-table writer-requests-table">
+              <thead><tr><th>Request</th><th>Due</th><th>Extra pay</th><th>Status</th><th></th></tr></thead>
+              <tbody id="requestRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script>
       (async function () {
         const user = await APP.requireRole("writer");
         if (!user) return;
-        await renderTopbar({
-          role: user.role,
-          links: [{ href: "/writer/dashboard.html", label: "Dashboard" }, { href: "/writer/earnings.html", label: "Earnings" }]
-        });
+        await renderTopbar({ role: user.role, links: [] });
 
-        document.getElementById("welcome").textContent = `Welcome, ${user.full_name || "Writer"}`;
+        const firstName = String(user.full_name || "Writer").trim().split(/\s+/)[0] || "Writer";
+        document.getElementById("writerName").textContent = firstName;
 
         APP.ui.textSkeleton("nApproved", { kind: "num", width: "54%" });
+        APP.ui.textSkeleton("nSubmitted", { kind: "num", width: "54%" });
         APP.ui.textSkeleton("nRejected", { kind: "num", width: "54%" });
         APP.ui.textSkeleton("nRework", { kind: "num", width: "54%" });
+        APP.ui.textSkeleton("nDraft", { kind: "num", width: "54%" });
         APP.ui.tableSkeleton("rows", { rows: 8, cols: 8 });
         APP.ui.textSkeleton("pageInfo", { kind: "line", width: "120px" });
 
@@ -120,8 +162,8 @@
 
         function renderRows(rows) {
           currentArticles = rows || [];
-          document.getElementById("rows").innerHTML = currentArticles
-            .map((a) => {
+          document.getElementById("rows").innerHTML = currentArticles.length
+            ? currentArticles.map((a) => {
               const canEdit = a.status === "draft" || a.status === "rework";
               const requestTitle = requestById.get(a.request_id)?.title || a.request_title || "";
               return `
@@ -140,8 +182,8 @@
                     <a href="/writer/editor.html?id=${encodeURIComponent(a.id)}"><button class="secondary">${canEdit ? "Edit" : "View"}</button></a>
                   </td>
                 </tr>`;
-            })
-            .join("");
+              }).join("")
+            : "<tr><td colspan='8' class='writer-empty-row'>No articles yet. Create your first article to get started.</td></tr>";
           focusRequestedArticle();
         }
 
@@ -222,8 +264,10 @@
           refreshRequests()
         ]);
         APP.setText("nApproved", stats.counts.approved || 0);
+        APP.setText("nSubmitted", stats.counts.submitted || 0);
         APP.setText("nRejected", stats.counts.rejected || 0);
         APP.setText("nRework", stats.counts.rework || 0);
+        APP.setText("nDraft", stats.counts.draft || 0);
         projectName = new Map((projects.projects || []).map((p) => [p.id, p.title]));
         total = list.total ?? total;
         renderRows(list.articles || []);

@@ -1346,6 +1346,33 @@ button.danger {
   overflow-wrap: anywhere;
 }
 
+.review-queue-project {
+  align-items: center;
+  align-self: start;
+  background: #edf6f2;
+  border: 1px solid #d3e7dd;
+  border-radius: 999px;
+  color: #315f50;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 750;
+  gap: 6px;
+  justify-self: start;
+  max-width: 100%;
+  padding: 6px 10px;
+}
+
+.review-queue-project .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 16px;
+}
+
+.review-queue-project span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .review-queue-summary {
   display: -webkit-box;
   line-height: 1.45;

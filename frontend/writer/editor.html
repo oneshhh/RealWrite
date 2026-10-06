@@ -6,7 +6,8 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Writer • Editor</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-writer-1" />
+    <link rel="stylesheet" href="/assets/writer-refresh.css?v=ui-20261006-writer-2" />
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
@@ -26,8 +27,18 @@
       <div class="grid">
         <div class="card writer-editor-card" style="grid-column: span 12">
           <div class="editor-page-head">
-            <h2 style="margin:0">Article</h2>
+            <div>
+              <p class="writer-editor-kicker">Writing workspace</p>
+              <h1 class="writer-editor-title">Article</h1>
+            </div>
             <a href="/writer/dashboard.html"><button class="secondary" type="button">Back</button></a>
+          </div>
+          <div class="writer-manager-remark hidden" id="remarkBox" role="note" aria-live="polite">
+            <span class="material-symbols-outlined" aria-hidden="true">rate_review</span>
+            <div>
+              <strong id="remarkTitle">Manager feedback</strong>
+              <p id="remark"></p>
+            </div>
           </div>
           <div class="muted hidden" id="requestMeta" style="margin-top:8px"></div>
           <div class="two">
@@ -91,7 +102,6 @@
             <button id="submit">Submit</button>
           </div>
           <div id="checks" style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap;"></div>
-          <div id="remark" class="muted" style="margin-top: 10px"></div>
           <div class="muted" id="msg" style="margin-top: 10px"></div>
         </div>
       </div>
@@ -100,7 +110,7 @@
       (async function () {
         const user = await APP.requireRole("writer");
         if (!user) return;
-        await renderTopbar({ role: user.role, links: [{ href: "/writer/dashboard.html", label: "Dashboard" }] });
+        await renderTopbar({ role: user.role, links: [] });
 
         const params = new URLSearchParams(window.location.search);
         const id = params.get("id");
@@ -485,8 +495,11 @@
           <span class="pill">AI: ${APP.checkBadge(article.ai_score)}</span>
           <span class="pill">Plagiarism: ${APP.checkBadge(article.plagiarism_score)}</span>
         `;
-        document.getElementById("remark").textContent =
-          article.manager_note ? `Remark from manager: ${article.manager_note}` : "";
+        const managerRemark = String(article.manager_note || "").trim();
+        document.getElementById("remark").textContent = managerRemark;
+        document.getElementById("remarkTitle").textContent =
+          article.status === "rework" ? "Changes requested by your manager" : "Manager feedback";
+        document.getElementById("remarkBox").classList.toggle("hidden", !managerRemark);
         document.getElementById("requestMeta").textContent = article.request_id
           ? `Request article${article.request_title ? `: ${article.request_title}` : ""}`
           : "";
