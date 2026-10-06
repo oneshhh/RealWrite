@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Manager Dashboard</title>
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-dashboard-1" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
@@ -14,53 +14,185 @@
   <body>
     <div class="topbar" id="topbar"></div>
     <div class="wrap wide">
-      <div class="grid">
-        <div class="card">
-          <h3 id="welcome" style="margin:0"></h3>
-          <div class="muted" style="margin-top:6px">Manage projects, assign writers, and review submitted articles.</div>
-        </div>
-        <div class="card">
-          <h2>My Projects</h2>
-          <div class="right" style="margin-bottom: 10px; flex-wrap: wrap;">
-            <a href="/manager/projects.html"><button>Manage projects</button></a>
+      <main class="manager-dashboard">
+        <section class="manager-dashboard-hero">
+          <div class="manager-dashboard-hero-copy">
+            <p class="manager-dashboard-eyebrow">Editorial overview</p>
+            <h1>Dashboard</h1>
+            <p id="welcome">A clear view of your projects, quality checks, and next editorial moves.</p>
           </div>
-          <table>
-            <thead>
-              <tr><th>Title</th><th>Status</th><th>AI</th><th>Plagiarism</th><th></th></tr>
-            </thead>
-            <tbody id="rows"></tbody>
-          </table>
+          <div class="manager-dashboard-hero-actions">
+            <a class="manager-dashboard-action primary" href="/manager/projects.html">
+              <span class="material-symbols-outlined" aria-hidden="true">add_circle</span>
+              <span>New project</span>
+            </a>
+            <a class="manager-dashboard-action secondary" href="/manager/review.html">
+              <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+              <span>Review queue</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="manager-dashboard-metrics" aria-label="Workspace overview">
+          <article class="manager-dashboard-metric featured">
+            <div class="manager-dashboard-metric-icon"><span class="material-symbols-outlined" aria-hidden="true">folder_copy</span></div>
+            <div>
+              <p>Active workspaces</p>
+              <strong id="nActiveProjects">—</strong>
+              <span>Projects currently in motion</span>
+            </div>
+          </article>
+          <article class="manager-dashboard-metric">
+            <div class="manager-dashboard-metric-icon"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span></div>
+            <div>
+              <p>AI screening</p>
+              <strong id="nAiProjects">—</strong>
+              <span>Workspaces with AI checks</span>
+            </div>
+          </article>
+          <article class="manager-dashboard-metric">
+            <div class="manager-dashboard-metric-icon"><span class="material-symbols-outlined" aria-hidden="true">verified</span></div>
+            <div>
+              <p>Originality checks</p>
+              <strong id="nPlagProjects">—</strong>
+              <span>Workspaces using plagiarism checks</span>
+            </div>
+          </article>
+        </section>
+
+        <div class="manager-dashboard-layout">
+          <section class="card manager-dashboard-workspaces">
+            <div class="manager-dashboard-section-head">
+              <div>
+                <p class="manager-dashboard-section-kicker">Your portfolio</p>
+                <h2>Active projects</h2>
+                <p>Open a workspace to manage requests, writers, and monthly delivery.</p>
+              </div>
+              <a class="manager-dashboard-text-link" href="/manager/projects.html">View all <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+            </div>
+            <div class="manager-dashboard-projects" id="rows" aria-live="polite"></div>
+          </section>
+
+          <aside class="manager-dashboard-side">
+            <section class="card manager-dashboard-quick-card">
+              <p class="manager-dashboard-section-kicker">Keep moving</p>
+              <h2>Quick access</h2>
+              <nav class="manager-dashboard-quick-links" aria-label="Dashboard quick access">
+                <a href="/manager/review.html">
+                  <span class="manager-dashboard-quick-icon"><span class="material-symbols-outlined" aria-hidden="true">fact_check</span></span>
+                  <span><strong>Review submissions</strong><small>Approve, reject, or request rework</small></span>
+                  <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                </a>
+                <a href="/manager/calendar.html">
+                  <span class="manager-dashboard-quick-icon"><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span></span>
+                  <span><strong>Editorial calendar</strong><small>See approvals and upcoming due dates</small></span>
+                  <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                </a>
+                <a href="/manager/messages.html">
+                  <span class="manager-dashboard-quick-icon"><span class="material-symbols-outlined" aria-hidden="true">forum</span></span>
+                  <span><strong>Team messages</strong><small>Continue project conversations</small></span>
+                  <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                </a>
+              </nav>
+            </section>
+
+            <section class="card manager-dashboard-quality-card">
+              <div class="manager-dashboard-quality-head">
+                <div>
+                  <p class="manager-dashboard-section-kicker">Quality coverage</p>
+                  <h2>Checks enabled</h2>
+                </div>
+                <strong id="qualityPercent">—</strong>
+              </div>
+              <div class="manager-dashboard-progress" aria-hidden="true"><span id="qualityBar"></span></div>
+              <p id="qualitySummary">Loading workspace quality settings…</p>
+            </section>
+          </aside>
         </div>
-      </div>
+      </main>
     </div>
     <script>
       (async function () {
         const user = await APP.requireRole("manager");
         if (!user) return;
-        await renderTopbar({
-          role: user.role,
-          links: [
-            { href: "/manager/dashboard.html", label: "Dashboard" },
-            { href: "/manager/review.html", label: "Review" },
-            { href: "/manager/payments.html", label: "Payments" }
-          ]
-        });
+        await renderTopbar({ role: user.role, links: [] });
 
-        document.getElementById("welcome").textContent = `Welcome, ${user.full_name || "Manager"}`;
+        const firstName = String(user.full_name || "Manager").trim().split(/\s+/)[0] || "Manager";
+        document.getElementById("welcome").textContent = `Welcome back, ${firstName}. Here’s the pulse of your editorial workspace.`;
 
-        APP.ui.tableSkeleton("rows", { rows: 8, cols: 5 });
-        const projects = await APP.apiFetch("/api/projects");
-        document.getElementById("rows").innerHTML = (projects.projects || [])
-          .map((p) => `<tr>
-            <td>${APP.escapeHtml(p.title)}</td>
-            <td class="muted">${APP.escapeHtml(p.status)}</td>
-            <td class="muted">${p.ai_check_enabled ? "ON" : "OFF"}</td>
-            <td class="muted">${p.plagiarism_check_enabled ? "ON" : "OFF"}</td>
-            <td class="right">
-              <a href="/manager/project-detail.html?id=${encodeURIComponent(p.id)}"><button class="secondary">Open</button></a>
-            </td>
-          </tr>`)
+        const projectRows = document.getElementById("rows");
+        projectRows.innerHTML = Array.from({ length: 4 })
+          .map(
+            () => `<article class="manager-dashboard-project-card is-skeleton">
+              <span class="rw-skeleton manager-dashboard-project-skeleton-title"></span>
+              <span class="rw-skeleton manager-dashboard-project-skeleton-line"></span>
+              <span class="rw-skeleton manager-dashboard-project-skeleton-line short"></span>
+            </article>`
+          )
           .join("");
+
+        const statusLabel = (value) => {
+          const text = String(value || "active").replace(/_/g, " ").trim();
+          return text ? text[0].toUpperCase() + text.slice(1) : "Active";
+        };
+
+        const checkChip = (enabled, icon, label) => `<span class="manager-dashboard-check ${enabled ? "is-on" : ""}">
+          <span class="material-symbols-outlined" aria-hidden="true">${enabled ? icon : "remove"}</span>${APP.escapeHtml(label)}
+        </span>`;
+
+        try {
+          const response = await APP.apiFetch("/api/projects");
+          const projects = response.projects || [];
+          const activeProjects = projects.filter((project) => String(project.status || "active").toLowerCase() !== "archived");
+          const aiProjects = projects.filter((project) => project.ai_check_enabled);
+          const plagiarismProjects = projects.filter((project) => project.plagiarism_check_enabled);
+          const qualityReady = projects.filter((project) => project.ai_check_enabled && project.plagiarism_check_enabled);
+          const qualityPercent = projects.length ? Math.round((qualityReady.length / projects.length) * 100) : 0;
+
+          document.getElementById("nActiveProjects").textContent = String(activeProjects.length);
+          document.getElementById("nAiProjects").textContent = String(aiProjects.length);
+          document.getElementById("nPlagProjects").textContent = String(plagiarismProjects.length);
+          document.getElementById("qualityPercent").textContent = `${qualityPercent}%`;
+          document.getElementById("qualityBar").style.width = `${qualityPercent}%`;
+          document.getElementById("qualitySummary").textContent = projects.length
+            ? `${qualityReady.length} of ${projects.length} workspaces have both quality checks enabled.`
+            : "Create your first project to configure editorial quality checks.";
+
+          projectRows.innerHTML = activeProjects.length
+            ? activeProjects
+                .slice(0, 6)
+                .map(
+                  (project) => `<article class="manager-dashboard-project-card">
+                    <div class="manager-dashboard-project-topline">
+                      <span class="manager-dashboard-status">${APP.escapeHtml(statusLabel(project.status))}</span>
+                      <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+                    </div>
+                    <div>
+                      <h3>${APP.escapeHtml(project.title || "Untitled project")}</h3>
+                      <p>${APP.escapeHtml(project.description || "Editorial workspace ready for requests, assignments, and review.")}</p>
+                    </div>
+                    <div class="manager-dashboard-project-checks">
+                      ${checkChip(project.ai_check_enabled, "auto_awesome", "AI")}
+                      ${checkChip(project.plagiarism_check_enabled, "verified", "Originality")}
+                    </div>
+                    <a href="/manager/project-detail.html?id=${encodeURIComponent(project.id)}">Open workspace <span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
+                  </article>`
+                )
+                .join("")
+            : `<div class="manager-dashboard-empty">
+                <span class="material-symbols-outlined" aria-hidden="true">create_new_folder</span>
+                <h3>Your first workspace starts here</h3>
+                <p>Create a project, choose its quality checks, and invite your editorial team.</p>
+                <a class="manager-dashboard-action primary" href="/manager/projects.html">Create a project</a>
+              </div>`;
+        } catch (error) {
+          projectRows.innerHTML = `<div class="manager-dashboard-empty">
+            <span class="material-symbols-outlined" aria-hidden="true">error</span>
+            <h3>Projects could not be loaded</h3>
+            <p>${APP.escapeHtml(error.message || "Please refresh and try again.")}</p>
+          </div>`;
+          document.getElementById("qualitySummary").textContent = "Quality coverage is temporarily unavailable.";
+        }
       })();
     </script>
   </body>
