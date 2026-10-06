@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: realwrite
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix backend ci
+    startCommand: npm --prefix backend start
+    envVars:
+      - key: NODE_VERSION
+        value: 20

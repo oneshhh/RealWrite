@@ -6,6 +6,13 @@ It is built for writing agencies, content studios, and internal publishing teams
 
 ![Real Write product poster](docs/screenshots/realwrite-hero.png)
 
+## Read The Story
+
+I wrote about why I built Real Write and the problem it solves for writing teams:
+
+- [Read on Dev.to](https://dev.to/_5f7af2c6355ebbaee134/building-realwrite-an-open-source-writing-collaboration-app-for-content-teams-3phe)
+- [Read on Medium](https://medium.com/@vanshu2004sabharwal/building-realwrite-an-open-source-writing-collaboration-app-for-content-teams-5c20b704dba3)
+
 ## Why Real Write Exists
 
 Content teams often manage writers across spreadsheets, chats, docs, payment notes, and review queues. Real Write brings those workflows into one application so managers can see what is requested, what is submitted, what needs review, what has been paid, and where each writer stands.

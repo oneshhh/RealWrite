@@ -23,7 +23,6 @@
             </div>
             <div class="right" style="flex-wrap:wrap;">
               <button class="secondary" id="toggleSettings" type="button">Project Settings</button>
-              <button id="raiseRequest" type="button">Raise Request</button>
               <a href="/manager/projects.html"><button class="secondary" type="button">Back</button></a>
             </div>
           </div>
@@ -815,7 +814,6 @@
             msg(e.message || String(e));
           }
         };
-        document.getElementById("raiseRequest").onclick = openRequestDialog;
         document.getElementById("raiseRequestInline").onclick = openRequestDialog;
 
         document.getElementById("prevMonth").onclick = async () => {

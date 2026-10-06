@@ -93,16 +93,6 @@ async function renderTopbar({ role, links }) {
       }));
   };
 
-  const rawTitle = String(document.title || "");
-  const titleParts = rawTitle
-    .split(/(?:\u2022|â€¢|•)/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const pageTitle = titleParts.length ? titleParts[titleParts.length - 1] : rawTitle;
-  const roleTitle = role ? `${String(role).charAt(0).toUpperCase()}${String(role).slice(1)} ` : "";
-  const buildHeaderTitle = (name) =>
-    titleParts.length > 1 && pageTitle ? `${name} - ${roleTitle}${pageTitle}`.trim() : pageTitle || "Dashboard";
-  const headerTitle = buildHeaderTitle(appName);
   const notificationsHref = role ? `/${encodeURIComponent(role)}/notifications.html` : "/shared/notifications.html";
   const navLinks = mergeLinks(standardLinksByRole[role] || [], links || []);
   navLinks.push({ href: notificationsHref, label: "Notifications", icon: "notifications" });
@@ -162,13 +152,9 @@ async function renderTopbar({ role, links }) {
     </aside>
 
     <header class="rw-header" role="banner">
-      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-        <button class="rw-icon-btn rw-menu-btn" id="rwMenuBtn" type="button" aria-label="Menu">
-          <span class="material-symbols-outlined" aria-hidden="true">menu</span>
-        </button>
-        <div class="rw-header-title" title="${APP.escapeHtml(headerTitle)}">${APP.escapeHtml(headerTitle)}</div>
-      </div>
-      <div class="rw-header-actions"></div>
+      <button class="rw-icon-btn rw-menu-btn" id="rwMenuBtn" type="button" aria-label="Menu">
+        <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+      </button>
     </header>
   `;
 
@@ -179,15 +165,9 @@ async function renderTopbar({ role, links }) {
         const brand = bar.querySelector(".rw-brand");
         const brandName = bar.querySelector(".rw-brand-name");
         const brandLogo = bar.querySelector(".rw-brand-logo");
-        const pageHeading = bar.querySelector(".rw-header-title");
         if (brand) brand.setAttribute("aria-label", `${nextName} home`);
         if (brandName) brandName.textContent = nextName;
         if (brandLogo) brandLogo.alt = `${nextName} logo`;
-        if (pageHeading) {
-          const nextHeaderTitle = buildHeaderTitle(nextName);
-          pageHeading.textContent = nextHeaderTitle;
-          pageHeading.title = nextHeaderTitle;
-        }
       })
       .catch(() => {});
   }, BACKGROUND_FETCH_DELAY_MS);
@@ -299,7 +279,6 @@ async function renderTopbar({ role, links }) {
     window.__rwMessageBadgePoll = setInterval(pollMessages, BADGE_POLL_MS);
   }
 
-  if (role) document.title = `${String(role).toUpperCase()} \u2022 ${pageTitle || rawTitle}`;
 }
 
 window.renderTopbar = renderTopbar;

@@ -11,6 +11,7 @@ function getBearerToken(req) {
 
 const COOKIE_ACCESS = "rw_at";
 const COOKIE_REFRESH = "rw_rt";
+const COOKIE_LOGGED_OUT = "rw_logged_out";
 const SESSION_MAX_AGE_MS = Number(process.env.SESSION_MAX_AGE_MS || 7 * 24 * 60 * 60 * 1000);
 const AUTH_USER_CACHE_TTL_MS = Math.max(1000, Number(process.env.AUTH_USER_CACHE_TTL_MS || 15000));
 const authUserCache = new Map();
@@ -24,6 +25,10 @@ function cookieOpts() {
 function getCookieTokens(req) {
   const cookies = parseCookies(req.headers.cookie);
   return { accessToken: cookies[COOKIE_ACCESS] || null, refreshToken: cookies[COOKIE_REFRESH] || null };
+}
+
+function isLoggedOut(req) {
+  return parseCookies(req.headers.cookie)[COOKIE_LOGGED_OUT] === "1";
 }
 
 function setSessionCookies(res, { accessToken, refreshToken }) {
@@ -83,6 +88,7 @@ async function resolveAccessToken(req, res) {
 const authenticate = {
   required: async (req, res, next) => {
     try {
+      if (isLoggedOut(req)) return res.status(401).json({ error: "Unauthorized" });
       let token = await resolveAccessToken(req, res);
       if (!token) return res.status(401).json({ error: "Unauthorized" });
 
@@ -113,6 +119,7 @@ const authenticate = {
   },
   optional: async (req, res, next) => {
     try {
+      if (isLoggedOut(req)) return next();
       let token = await resolveAccessToken(req, res);
       if (!token) return next();
 

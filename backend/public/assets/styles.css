@@ -236,23 +236,11 @@ a:hover {
   right: 0;
   height: var(--rw-header-h);
   padding: 0 22px;
-  display: flex;
+  display: none;
   align-items: center;
-  justify-content: space-between;
   background: rgba(255, 255, 255, 0.7);
   border-bottom: 1px solid rgba(229, 226, 225, 0.7);
   backdrop-filter: blur(14px);
-}
-
-.rw-header-title {
-  font-family: var(--rw-font-sans);
-  font-size: 19px;
-  font-weight: var(--rw-heading-weight);
-  letter-spacing: -0.02em;
-  color: var(--rw-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .rw-backdrop {
@@ -322,7 +310,7 @@ a:hover {
 .wrap {
   max-width: 1240px;
   margin: 0 auto;
-  padding: calc(var(--rw-header-h) + 26px) 22px 28px calc(var(--rw-sidebar-w) + 22px);
+  padding: 26px 22px 28px calc(var(--rw-sidebar-w) + 22px);
 }
 
 .wrap.wide {
@@ -978,6 +966,7 @@ button.danger {
   }
 
   .rw-header {
+    display: flex;
     left: 0;
     padding: 0 16px;
   }
@@ -1501,6 +1490,11 @@ button.danger {
   overflow: hidden;
 }
 
+.projects-create-card {
+  background: linear-gradient(145deg, rgba(235, 247, 240, 0.94), rgba(248, 252, 250, 0.96) 68%, rgba(255, 255, 255, 0.95));
+  border-color: rgba(71, 100, 89, 0.24);
+}
+
 .projects-create-card::before,
 .projects-list-card::before {
   content: "";
@@ -1648,7 +1642,7 @@ button.danger {
   line-height: 1;
 }
 
-.projects-search input {
+.projects-search > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
   width: 100%;
   padding-left: 52px;
 }
@@ -2270,7 +2264,7 @@ button.planner-day {
   display: grid;
   grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
   gap: 0;
-  min-height: calc(100vh - 120px);
+  min-height: calc(100vh - 54px);
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -2338,7 +2332,7 @@ button.planner-day {
   line-height: 1;
 }
 
-.chat-search-wrap input {
+.chat-search-wrap > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
   width: 100%;
   padding-left: 52px;
   border-radius: 999px;
@@ -2820,6 +2814,7 @@ button.planner-day {
 @media (max-width: 900px) {
   .chat-shell {
     grid-template-columns: 1fr;
+    min-height: calc(100vh - 120px);
   }
 
   .chat-thread-head {

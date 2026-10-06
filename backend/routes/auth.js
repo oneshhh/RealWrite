@@ -8,6 +8,7 @@ const router = express.Router();
 
 const COOKIE_ACCESS = "rw_at";
 const COOKIE_REFRESH = "rw_rt";
+const COOKIE_LOGGED_OUT = "rw_logged_out";
 const SESSION_MAX_AGE_MS = Number(process.env.SESSION_MAX_AGE_MS || 7 * 24 * 60 * 60 * 1000);
 const USER_ID_PREFIX_BY_ROLE = { admin: "ADM", manager: "MGR", writer: "WRT" };
 
@@ -60,6 +61,7 @@ router.post("/login", async (req, res) => {
     const opts = cookieOpts();
     setCookie(res, COOKIE_ACCESS, data.session.access_token, opts);
     setCookie(res, COOKIE_REFRESH, data.session.refresh_token, opts);
+    clearCookie(res, COOKIE_LOGGED_OUT, opts);
 
     return res.json({ ok: true });
   } catch (_e) {
@@ -71,6 +73,9 @@ router.post("/logout", async (_req, res) => {
   const opts = cookieOpts();
   clearCookie(res, COOKIE_ACCESS, opts);
   clearCookie(res, COOKIE_REFRESH, opts);
+  // Keep logout authoritative even if an authenticated request that was already
+  // in flight responds later with renewed session cookies.
+  setCookie(res, COOKIE_LOGGED_OUT, "1", opts);
   return res.json({ ok: true });
 });
 
