@@ -6,10 +6,13 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Manager • Review</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-review-project" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261007-inline-comments-1" />
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+    <script src="/shared/review-comments.js"></script>
   </head>
   <body>
     <div class="topbar" id="topbar"></div>
@@ -71,15 +74,43 @@
             </div>
           </div>
 
-          <div class="review-long-card">
-            <div class="review-long-head">
-              <div class="muted">Long description</div>
-              <button class="secondary editor-copy-btn" id="copyReviewLong" type="button">
-                <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
-                Copy long description
-              </button>
+          <div class="review-annotation-layout">
+            <div class="review-long-card review-annotated-document">
+              <div class="review-long-head">
+                <div>
+                  <strong>Article</strong>
+                  <div class="muted">Select text to leave a precise change request.</div>
+                </div>
+                <button class="secondary editor-copy-btn" id="copyReviewLong" type="button">
+                  <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+                  Copy article
+                </button>
+              </div>
+              <div id="reviewEditor" class="review-quill"></div>
             </div>
-            <div id="long" class="review-long-body"></div>
+            <aside class="review-comments-panel" aria-label="Inline review comments">
+              <div class="review-comments-heading">
+                <div>
+                  <div class="review-comments-kicker">Inline feedback</div>
+                  <h3>Change requests</h3>
+                </div>
+                <span class="review-comment-count" id="reviewCommentCount">0</span>
+              </div>
+              <div class="review-selection-hint" id="selectionHint">
+                <span class="material-symbols-outlined" aria-hidden="true">ink_highlighter</span>
+                Highlight a passage in the article to add a comment.
+              </div>
+              <div class="review-comment-composer hidden" id="commentComposer">
+                <div class="review-comment-quote" id="commentQuote"></div>
+                <label for="commentText">What should the writer change?</label>
+                <textarea id="commentText" placeholder="Add clear, actionable feedback..."></textarea>
+                <div class="review-comment-composer-actions">
+                  <button class="secondary" id="cancelComment" type="button">Cancel</button>
+                  <button id="saveComment" type="button">Add comment</button>
+                </div>
+              </div>
+              <div class="review-comment-list" id="reviewCommentList"></div>
+            </aside>
           </div>
 
           <div class="review-note-block">
@@ -118,6 +149,18 @@
         const emptyQueue = document.getElementById("emptyQueue");
         let selected = null;
         let projectName = new Map();
+        let draftComments = [];
+        let savedComments = [];
+        let pendingSelection = null;
+        let editingCommentId = null;
+        let activeCommentId = null;
+
+        REVIEW_COMMENTS.register(Quill);
+        const reviewQuill = new Quill("#reviewEditor", {
+          theme: "snow",
+          readOnly: true,
+          modules: { toolbar: false }
+        });
 
         const params = new URLSearchParams(window.location.search);
         const openId = params.get("id");
@@ -195,7 +238,7 @@
           if (!id) return;
           try {
             const out = await APP.apiFetch(`/api/articles/${encodeURIComponent(id)}`);
-            open(out.article);
+            await open(out.article);
           } catch (e) {
             showQueue();
             msg(e.message || String(e));
@@ -208,8 +251,120 @@
           document.getElementById("rework").disabled = !enabled;
         }
 
-        function open(a) {
+        function currentHighlightComments() {
+          return [...savedComments.filter((comment) => comment.status !== "resolved"), ...draftComments];
+        }
+
+        function focusReviewComment(comment) {
+          activeCommentId = comment.id;
+          REVIEW_COMMENTS.applyHighlights(reviewQuill, currentHighlightComments(), activeCommentId);
+          const leaf = reviewQuill.getLeaf(Number(comment.anchor_start || 0));
+          const node = leaf?.[0]?.domNode;
+          const target = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
+          document.querySelector(`[data-comment-card="${CSS.escape(String(comment.id))}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          renderReviewComments();
+        }
+
+        function renderReviewComments() {
+          const list = document.getElementById("reviewCommentList");
+          const activeSaved = savedComments.filter((comment) => comment.status !== "resolved");
+          document.getElementById("reviewCommentCount").textContent = String(draftComments.length + activeSaved.length);
+          const draftHtml = draftComments.map((comment, index) => `
+            <article class="review-comment-card ${activeCommentId === comment.id ? "is-active" : ""}" data-comment-card="${APP.escapeHtml(comment.id)}">
+              <button class="review-comment-main" type="button" data-focus-comment="${APP.escapeHtml(comment.id)}">
+                <span class="review-comment-number">${index + 1}</span>
+                <span>
+                  <span class="review-comment-quote-small">“${APP.escapeHtml(comment.selected_text)}”</span>
+                  <strong>${APP.escapeHtml(comment.comment_text)}</strong>
+                </span>
+              </button>
+              <div class="review-comment-card-actions">
+                <button class="secondary" type="button" data-edit-comment="${APP.escapeHtml(comment.id)}">Edit</button>
+                <button class="secondary" type="button" data-remove-comment="${APP.escapeHtml(comment.id)}">Remove</button>
+              </div>
+            </article>`).join("");
+          const savedHtml = activeSaved.map((comment, index) => `
+            <article class="review-comment-card is-saved ${activeCommentId === comment.id ? "is-active" : ""}" data-comment-card="${APP.escapeHtml(comment.id)}">
+              <button class="review-comment-main" type="button" data-focus-comment="${APP.escapeHtml(comment.id)}">
+                <span class="review-comment-number">${draftComments.length + index + 1}</span>
+                <span>
+                  <span class="review-comment-round">Round ${comment.review_round} · ${APP.escapeHtml(comment.status)}</span>
+                  <span class="review-comment-quote-small">“${APP.escapeHtml(comment.selected_text)}”</span>
+                  <strong>${APP.escapeHtml(comment.comment_text)}</strong>
+                </span>
+              </button>
+            </article>`).join("");
+          list.innerHTML = draftHtml + savedHtml || `<div class="review-comment-empty">No inline comments yet.</div>`;
+          for (const button of list.querySelectorAll("[data-focus-comment]")) {
+            button.onclick = () => {
+              const id = button.getAttribute("data-focus-comment");
+              const comment = currentHighlightComments().find((item) => String(item.id) === String(id));
+              if (comment) focusReviewComment(comment);
+            };
+          }
+          for (const button of list.querySelectorAll("[data-edit-comment]")) {
+            button.onclick = () => editDraftComment(button.getAttribute("data-edit-comment"));
+          }
+          for (const button of list.querySelectorAll("[data-remove-comment]")) {
+            button.onclick = () => removeDraftComment(button.getAttribute("data-remove-comment"));
+          }
+          REVIEW_COMMENTS.applyHighlights(reviewQuill, currentHighlightComments(), activeCommentId);
+        }
+
+        function showCommentComposer(selection, comment = null) {
+          pendingSelection = selection;
+          editingCommentId = comment?.id || null;
+          document.getElementById("commentQuote").textContent = `“${selection.selected_text}”`;
+          document.getElementById("commentText").value = comment?.comment_text || "";
+          document.getElementById("saveComment").textContent = comment ? "Save comment" : "Add comment";
+          document.getElementById("commentComposer").classList.remove("hidden");
+          document.getElementById("selectionHint").classList.add("hidden");
+          document.getElementById("commentText").focus();
+        }
+
+        function hideCommentComposer() {
+          pendingSelection = null;
+          editingCommentId = null;
+          document.getElementById("commentComposer").classList.add("hidden");
+          document.getElementById("selectionHint").classList.remove("hidden");
+        }
+
+        function editDraftComment(id) {
+          const comment = draftComments.find((item) => String(item.id) === String(id));
+          if (!comment) return;
+          focusReviewComment(comment);
+          showCommentComposer({ ...comment }, comment);
+        }
+
+        function removeDraftComment(id) {
+          draftComments = draftComments.filter((comment) => String(comment.id) !== String(id));
+          if (activeCommentId === id) activeCommentId = null;
+          hideCommentComposer();
+          renderReviewComments();
+        }
+
+        async function loadReviewComments(articleId) {
+          try {
+            const out = await APP.apiFetch(`/api/articles/${encodeURIComponent(articleId)}/review-comments`);
+            const text = reviewQuill.getText().replace(/\n$/, "");
+            savedComments = (out.comments || []).map((comment) => REVIEW_COMMENTS.reanchor(comment, text));
+          } catch (e) {
+            savedComments = [];
+            msg(e.message || String(e));
+          }
+          renderReviewComments();
+        }
+
+        async function open(a) {
+          const isSameArticle = selected?.id === a.id;
           selected = a;
+          if (!isSameArticle) {
+            draftComments = [];
+            savedComments = [];
+            activeCommentId = null;
+            hideCommentComposer();
+          }
           showReview();
           document.getElementById("status").innerHTML = APP.badgeForStatus(a.status);
           document.getElementById("title").textContent = a.title || "";
@@ -221,12 +376,13 @@
             ? `Submitted for request${a.request_title ? `: ${a.request_title}` : ""}`
             : "";
           document.getElementById("requestMeta").classList.toggle("hidden", !a.request_id);
-          document.getElementById("long").innerHTML = a.long_description || "";
-          document.getElementById("note").value = "";
+          reviewQuill.root.innerHTML = a.long_description || "";
+          if (!isSameArticle) document.getElementById("note").value = "";
           document.getElementById("aiScore").innerHTML = APP.checkBadge(a.ai_score);
           document.getElementById("plagScore").innerHTML = APP.checkBadge(a.plagiarism_score);
           setReviewActionsEnabled(a.status === "submitted");
           msg(a.status === "submitted" ? "" : "This article is not currently submitted for review.");
+          await loadReviewComments(a.id);
         }
 
         const filenameFromDisposition = (header, fallback) => {
@@ -265,7 +421,7 @@
         }
 
         async function copyLongDescription() {
-          const text = document.getElementById("long").innerText.trim();
+          const text = reviewQuill.getText().replace(/\n$/, "").trim();
           if (!text) {
             msg("Nothing to copy.");
             return;
@@ -304,7 +460,18 @@
               action: async () =>
                 APP.apiFetch(`/api/articles/${encodeURIComponent(selected.id)}/review`, {
                   method: "POST",
-                  body: JSON.stringify({ action, manager_note: document.getElementById("note").value })
+                  body: JSON.stringify({
+                    action,
+                    manager_note: document.getElementById("note").value,
+                    comments: action === "rework" ? draftComments.map(({ anchor_start, anchor_length, selected_text, prefix_text, suffix_text, comment_text }) => ({
+                      anchor_start,
+                      anchor_length,
+                      selected_text,
+                      prefix_text,
+                      suffix_text,
+                      comment_text
+                    })) : undefined
+                  })
                 })
             });
             window.location.href = "/manager/review.html";
@@ -325,7 +492,7 @@
               action: async () => APP.apiFetch(`/api/articles/${encodeURIComponent(selected.id)}/checks`, { method: "POST" })
             });
             selected = out.article;
-            open(selected);
+            await open(selected);
           } catch (e) {
             msg(e.message || String(e));
           }
@@ -335,6 +502,54 @@
         document.getElementById("reject").onclick = () => act("rejected");
         document.getElementById("rework").onclick = () => act("rework");
         document.getElementById("copyReviewLong").onclick = copyLongDescription;
+        document.getElementById("cancelComment").onclick = hideCommentComposer;
+        document.getElementById("saveComment").onclick = () => {
+          const commentText = document.getElementById("commentText").value.trim();
+          if (!pendingSelection || !commentText) {
+            msg("Select text and write a comment first.");
+            return;
+          }
+          if (editingCommentId) {
+            const comment = draftComments.find((item) => item.id === editingCommentId);
+            if (comment) comment.comment_text = commentText;
+          } else {
+            const overlaps = draftComments.some((comment) => {
+              const start = pendingSelection.anchor_start;
+              const end = start + pendingSelection.anchor_length;
+              const otherStart = comment.anchor_start;
+              const otherEnd = otherStart + comment.anchor_length;
+              return start < otherEnd && end > otherStart;
+            });
+            if (overlaps) {
+              msg("That passage already overlaps another new comment. Select a separate passage.");
+              return;
+            }
+            draftComments.push({
+              ...pendingSelection,
+              id: `draft-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              comment_text: commentText,
+              status: "open"
+            });
+          }
+          hideCommentComposer();
+          msg("");
+          renderReviewComments();
+        };
+        reviewQuill.on("selection-change", (range) => {
+          if (!range || range.length < 1 || selected?.status !== "submitted") return;
+          const text = reviewQuill.getText().replace(/\n$/, "");
+          const selectedText = text.slice(range.index, range.index + range.length).trim();
+          if (!selectedText) return;
+          const leading = text.slice(range.index, range.index + range.length).indexOf(selectedText);
+          const start = range.index + Math.max(0, leading);
+          showCommentComposer({
+            anchor_start: start,
+            anchor_length: selectedText.length,
+            selected_text: selectedText,
+            prefix_text: text.slice(Math.max(0, start - 80), start),
+            suffix_text: text.slice(start + selectedText.length, start + selectedText.length + 80)
+          });
+        });
         for (const button of document.querySelectorAll("[data-download-format]")) {
           button.onclick = () => downloadArticle(button.getAttribute("data-download-format"));
         }

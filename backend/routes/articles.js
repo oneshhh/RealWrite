@@ -62,6 +62,38 @@ function requestAccessError(message, status = 400) {
   return error;
 }
 
+async function requireArticleAccess(db, articleId, user) {
+  const { data: article, error } = await db.from("articles").select("*").eq("id", articleId).single();
+  if (error) throw requestAccessError(error.message, 404);
+  if (user.role === "writer" && article.writer_id !== user.id) throw requestAccessError("Forbidden", 403);
+  if (user.role === "manager") await requireManagerProjectAccess(db, article.project_id, user.id);
+  return article;
+}
+
+function normalizeReviewComment(raw, index) {
+  const start = Number(raw?.anchor_start);
+  const length = Number(raw?.anchor_length);
+  const selectedText = String(raw?.selected_text || "").trim();
+  const commentText = String(raw?.comment_text || "").trim();
+  if (!Number.isInteger(start) || start < 0 || !Number.isInteger(length) || length < 1) {
+    throw requestAccessError(`Comment ${index + 1} has an invalid text selection.`);
+  }
+  if (!selectedText || !commentText) throw requestAccessError(`Comment ${index + 1} is incomplete.`);
+  if (selectedText.length > 2000 || commentText.length > 4000) {
+    throw requestAccessError(`Comment ${index + 1} is too long.`);
+  }
+  return {
+    anchor_field: "long_description",
+    anchor_start: start,
+    anchor_length: length,
+    selected_text: selectedText,
+    prefix_text: String(raw?.prefix_text || "").slice(-120) || null,
+    suffix_text: String(raw?.suffix_text || "").slice(0, 120) || null,
+    comment_text: commentText,
+    display_order: index + 1
+  };
+}
+
 async function getRequestArticleContext(db, requestId, writerId, projectId) {
   const { data: recipient, error } = await db
     .from("project_request_recipients")
@@ -466,6 +498,76 @@ router.get("/:id", authorizeRoles("writer", "manager", "admin"), async (req, res
   }
 });
 
+router.get("/:id/review-comments", authorizeRoles("writer", "manager", "admin"), async (req, res) => {
+  const db = getSupabaseAdmin();
+  try {
+    await requireArticleAccess(db, req.params.id, req.auth.user);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message || "Forbidden" });
+  }
+
+  let query = db
+    .from("article_review_comments")
+    .select("*")
+    .eq("article_id", req.params.id)
+    .order("review_round", { ascending: true })
+    .order("display_order", { ascending: true });
+  if (req.auth.user.role === "writer") query = query.neq("status", "resolved");
+  const { data, error } = await query;
+  if (error) return res.status(400).json({ error: error.message });
+  return res.json({ comments: data || [] });
+});
+
+router.patch("/:id/review-comments/:commentId", authorizeRoles("writer", "manager", "admin"), async (req, res) => {
+  const db = getSupabaseAdmin();
+  let article;
+  try {
+    article = await requireArticleAccess(db, req.params.id, req.auth.user);
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message || "Forbidden" });
+  }
+
+  const { data: existing, error: getErr } = await db
+    .from("article_review_comments")
+    .select("*")
+    .eq("id", req.params.commentId)
+    .eq("article_id", article.id)
+    .single();
+  if (getErr) return res.status(404).json({ error: "Comment not found." });
+
+  const now = new Date().toISOString();
+  const patch = { updated_at: now };
+  if (req.auth.user.role === "writer") {
+    if (article.writer_id !== req.auth.user.id) return res.status(403).json({ error: "Forbidden" });
+    if (article.status !== "rework") return res.status(400).json({ error: "Comments can only be updated during rework." });
+    const status = String(req.body?.status || "");
+    if (!['open', 'addressed'].includes(status)) return res.status(400).json({ error: "Invalid comment status." });
+    patch.status = status;
+    patch.writer_addressed_at = status === "addressed" ? now : null;
+  } else {
+    if (req.body?.comment_text !== undefined) {
+      const text = String(req.body.comment_text || "").trim();
+      if (!text) return res.status(400).json({ error: "Comment cannot be empty." });
+      patch.comment_text = text.slice(0, 4000);
+    }
+    if (req.body?.status !== undefined) {
+      const status = String(req.body.status);
+      if (!['open', 'resolved'].includes(status)) return res.status(400).json({ error: "Invalid comment status." });
+      patch.status = status;
+      patch.resolved_at = status === "resolved" ? now : null;
+    }
+  }
+
+  const { data, error } = await db
+    .from("article_review_comments")
+    .update(patch)
+    .eq("id", existing.id)
+    .select("*")
+    .single();
+  if (error) return res.status(400).json({ error: error.message });
+  return res.json({ comment: data });
+});
+
 router.delete("/:id", authorizeRoles("admin"), async (req, res) => {
   const { id } = req.params;
   const db = getSupabaseAdmin();
@@ -543,7 +645,7 @@ router.post("/", authorizeRoles("writer"), async (req, res) => {
 
 router.patch("/:id", authorizeRoles("writer"), async (req, res) => {
   const { id } = req.params;
-  const { title, short_description, long_description, article_type, seo_tags } = req.body || {};
+  const { title, short_description, long_description, article_type, seo_tags, review_comment_anchors } = req.body || {};
 
   const db = getSupabaseAdmin();
   const { data: article, error: getErr } = await db.from("articles").select("*").eq("id", id).single();
@@ -561,6 +663,29 @@ router.patch("/:id", authorizeRoles("writer"), async (req, res) => {
 
   const { data, error } = await db.from("articles").update(patch).eq("id", id).select("*").single();
   if (error) return res.status(400).json({ error: error.message });
+
+  if (Array.isArray(review_comment_anchors)) {
+    const updates = review_comment_anchors.slice(0, 100).map(async (anchor) => {
+      const commentId = String(anchor?.id || "");
+      const start = Number(anchor?.anchor_start);
+      const length = Number(anchor?.anchor_length);
+      if (!commentId || !Number.isInteger(start) || start < 0 || !Number.isInteger(length) || length < 1) return;
+      await db
+        .from("article_review_comments")
+        .update({
+          anchor_start: start,
+          anchor_length: length,
+          selected_text: String(anchor?.selected_text || "").slice(0, 2000),
+          prefix_text: String(anchor?.prefix_text || "").slice(-120) || null,
+          suffix_text: String(anchor?.suffix_text || "").slice(0, 120) || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", commentId)
+        .eq("article_id", id)
+        .neq("status", "resolved");
+    });
+    await Promise.all(updates);
+  }
   return res.json({ article: data });
 });
 
@@ -614,7 +739,7 @@ router.post("/:id/submit", authorizeRoles("writer"), async (req, res) => {
 
 router.post("/:id/review", authorizeRoles("manager"), async (req, res) => {
   const { id } = req.params;
-  const { action, manager_note } = req.body || {};
+  const { action, manager_note, comments } = req.body || {};
   if (!["approved", "rejected", "rework"].includes(action)) return res.status(400).json({ error: "Invalid action" });
 
   const db = getSupabaseAdmin();
@@ -628,6 +753,42 @@ router.post("/:id/review", authorizeRoles("manager"), async (req, res) => {
     return res.status(e.status || 400).json({ error: e.message || "Forbidden" });
   }
 
+  let insertedComments = [];
+  let reviewRound = null;
+  if (action === "rework") {
+    if (comments !== undefined && !Array.isArray(comments)) return res.status(400).json({ error: "Comments must be a list." });
+    if ((comments || []).length > 50) return res.status(400).json({ error: "A review can contain up to 50 comments." });
+    let normalized;
+    try {
+      normalized = (comments || []).map(normalizeReviewComment);
+    } catch (e) {
+      return res.status(e.status || 400).json({ error: e.message });
+    }
+
+    if (normalized.length) {
+      const { data: lastRound, error: roundErr } = await db
+        .from("article_review_comments")
+        .select("review_round")
+        .eq("article_id", id)
+        .order("review_round", { ascending: false })
+        .limit(1);
+      if (roundErr) return res.status(400).json({ error: roundErr.message });
+      reviewRound = Number(lastRound?.[0]?.review_round || 0) + 1;
+      const { data: created, error: commentErr } = await db
+        .from("article_review_comments")
+        .insert(normalized.map((comment) => ({
+          ...comment,
+          article_id: id,
+          manager_id: req.auth.user.id,
+          review_round: reviewRound,
+          status: "open"
+        })))
+        .select("*");
+      if (commentErr) return res.status(400).json({ error: commentErr.message });
+      insertedComments = created || [];
+    }
+  }
+
   const { data: updated, error } = await db
     .from("articles")
     .update({
@@ -638,7 +799,29 @@ router.post("/:id/review", authorizeRoles("manager"), async (req, res) => {
     .eq("id", id)
     .select("*")
     .single();
-  if (error) return res.status(400).json({ error: error.message });
+  if (error) {
+    if (insertedComments.length) {
+      await db.from("article_review_comments").delete().in("id", insertedComments.map((comment) => comment.id));
+    }
+    return res.status(400).json({ error: error.message });
+  }
+
+  const resolvedAt = new Date().toISOString();
+  if (action === "rework") {
+    let resolveQuery = db
+      .from("article_review_comments")
+      .update({ status: "resolved", resolved_at: resolvedAt, updated_at: resolvedAt })
+      .eq("article_id", id)
+      .neq("status", "resolved");
+    if (reviewRound !== null) resolveQuery = resolveQuery.neq("review_round", reviewRound);
+    await resolveQuery;
+  } else if (action !== "rework") {
+    await db
+      .from("article_review_comments")
+      .update({ status: "resolved", resolved_at: resolvedAt, updated_at: resolvedAt })
+      .eq("article_id", id)
+      .neq("status", "resolved");
+  }
 
   let requestContext = null;
   if (updated.request_id) {
@@ -718,16 +901,16 @@ router.post("/:id/review", authorizeRoles("manager"), async (req, res) => {
     body:
       action === "approved"
         ? `Your article "${updated.title}" was approved.`
-        : `Your article "${updated.title}" was marked as ${action}. ${manager_note ? "Note: " + manager_note : ""}`.trim(),
+        : `Your article "${updated.title}" was marked as ${action}. ${insertedComments.length ? `${insertedComments.length} inline comment${insertedComments.length === 1 ? "" : "s"} added. ` : ""}${manager_note ? "Note: " + manager_note : ""}`.trim(),
     payload: { article_id: updated.id, project_id: updated.project_id },
     emailSubject: `${APP_NAME}: article ${action}`,
     emailText:
       action === "approved"
         ? `Your article "${updated.title}" was approved.`
-        : `Your article "${updated.title}" was marked as ${action}.${manager_note ? ` Note: ${manager_note}` : ""}`
+        : `Your article "${updated.title}" was marked as ${action}.${insertedComments.length ? ` ${insertedComments.length} inline comment${insertedComments.length === 1 ? "" : "s"} added.` : ""}${manager_note ? ` Note: ${manager_note}` : ""}`
   });
 
-  return res.json({ article: updated });
+  return res.json({ article: updated, comments: insertedComments });
 });
 
 // internal route (optional): re-run checks

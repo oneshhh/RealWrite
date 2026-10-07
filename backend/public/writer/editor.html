@@ -6,13 +6,14 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Writer • Editor</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261006-writer-1" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261007-inline-comments-1" />
     <link rel="stylesheet" href="/assets/writer-refresh.css?v=ui-20261006-writer-2" />
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+    <script src="/shared/review-comments.js"></script>
   </head>
   <body>
     <div class="topbar" id="topbar"></div>
@@ -58,43 +59,56 @@
               <span id="shortWords">0 words</span>
             </div>
           </div>
-          <div style="margin-top: 10px">
-            <label class="muted">Long description</label>
-            <div id="editor"></div>
-            <div class="muted editor-meter-row">
-              <div class="editor-meter-left">
-                <span class="autosave-status is-idle" id="autosaveStatus" aria-live="polite">
-                  <span class="material-symbols-outlined autosave-icon" id="autosaveIcon" aria-hidden="true">cloud_done</span>
-                  <span id="autosaveText">Saved</span>
-                </span>
-                <label class="spellcheck-toggle" title="Browser spellcheck">
-                  <input id="spellcheckToggle" type="checkbox" checked />
-                  <span>Spellcheck</span>
-                </label>
-                <span class="spellcheck-status" id="spellcheckStatus">Browser</span>
+          <div class="writer-review-layout" style="margin-top: 10px">
+            <div class="writer-review-document">
+              <label class="muted">Long description</label>
+              <div id="editor"></div>
+              <div class="muted editor-meter-row">
+                <div class="editor-meter-left">
+                  <span class="autosave-status is-idle" id="autosaveStatus" aria-live="polite">
+                    <span class="material-symbols-outlined autosave-icon" id="autosaveIcon" aria-hidden="true">cloud_done</span>
+                    <span id="autosaveText">Saved</span>
+                  </span>
+                  <label class="spellcheck-toggle" title="Browser spellcheck">
+                    <input id="spellcheckToggle" type="checkbox" checked />
+                    <span>Spellcheck</span>
+                  </label>
+                  <span class="spellcheck-status" id="spellcheckStatus">Browser</span>
+                </div>
+                <span id="longWords">0 words</span>
               </div>
-              <span id="longWords">0 words</span>
+              <div class="editor-copy-row">
+                <button class="secondary editor-copy-btn" id="copyLong" type="button">
+                  <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+                  Copy long description
+                </button>
+              </div>
+              <div class="editor-download-row">
+                <button class="secondary editor-download-btn" data-download-format="pdf" type="button" disabled>
+                  <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+                  Download PDF
+                </button>
+                <button class="secondary editor-download-btn" data-download-format="docx" type="button" disabled>
+                  <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                  Download Word
+                </button>
+                <button class="secondary editor-download-btn" data-download-format="txt" type="button" disabled>
+                  <span class="material-symbols-outlined" aria-hidden="true">article</span>
+                  Download TXT
+                </button>
+              </div>
             </div>
-            <div class="editor-copy-row">
-              <button class="secondary editor-copy-btn" id="copyLong" type="button">
-                <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
-                Copy long description
-              </button>
-            </div>
-            <div class="editor-download-row">
-              <button class="secondary editor-download-btn" data-download-format="pdf" type="button" disabled>
-                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
-                Download PDF
-              </button>
-              <button class="secondary editor-download-btn" data-download-format="docx" type="button" disabled>
-                <span class="material-symbols-outlined" aria-hidden="true">description</span>
-                Download Word
-              </button>
-              <button class="secondary editor-download-btn" data-download-format="txt" type="button" disabled>
-                <span class="material-symbols-outlined" aria-hidden="true">article</span>
-                Download TXT
-              </button>
-            </div>
+            <aside class="writer-review-comments hidden" id="writerReviewComments" aria-label="Requested changes">
+              <div class="writer-review-comments-head">
+                <div>
+                  <p>Manager review</p>
+                  <h3>Requested changes</h3>
+                </div>
+                <span id="writerCommentCount">0</span>
+              </div>
+              <p class="muted writer-review-help">Select a card to jump to the highlighted passage.</p>
+              <div class="writer-review-comment-list" id="writerCommentList"></div>
+            </aside>
           </div>
           <div class="right editor-form-actions" style="margin-top: 12px">
             <span class="badge" id="statusBadge"></span>
@@ -116,6 +130,7 @@
         const id = params.get("id");
         if (!id) { window.location.href = "/writer/dashboard.html"; return; }
 
+        REVIEW_COMMENTS.register(Quill);
         const quill = new Quill("#editor", {
           theme: "snow",
           placeholder: "Write your article here...",
@@ -155,6 +170,9 @@
         let autosaveReady = false;
         let lastSavedSnapshot = "";
         let spellcheckEnabled = window.localStorage.getItem("rw:spellcheck-enabled") !== "false";
+        let reviewComments = [];
+        let activeCommentId = null;
+        let commentEditingAllowed = false;
 
         const countWords = (text) => {
           const t = String(text || "").replace(/\s+/g, " ").trim();
@@ -185,9 +203,21 @@
           spellcheckStatus.className = `spellcheck-status ${enabled ? "on" : "off"}`;
         };
 
-        const cleanEditorHtml = () => {
-          const clone = quill.root.cloneNode(true);
-          return clone.innerHTML;
+        const cleanEditorHtml = () => REVIEW_COMMENTS.cleanHtml(quill.root);
+
+        const reviewCommentAnchors = () => {
+          const text = quill.getText().replace(/\n$/, "");
+          return reviewComments
+            .filter((comment) => comment.status !== "resolved" && comment.anchor_state !== "missing")
+            .map((comment) => REVIEW_COMMENTS.refreshAnchorText(comment, text))
+            .map(({ id, anchor_start, anchor_length, selected_text, prefix_text, suffix_text }) => ({
+              id,
+              anchor_start,
+              anchor_length,
+              selected_text,
+              prefix_text,
+              suffix_text
+            }));
         };
 
         async function copyLongDescription() {
@@ -226,6 +256,7 @@
           title: document.getElementById("title").value.trim(),
           short_description: document.getElementById("short").value,
           long_description: cleanEditorHtml(),
+          review_comment_anchors: reviewCommentAnchors(),
           seo_tags: document.getElementById("tags").value
             .split(",")
             .map((t) => t.trim())
@@ -298,9 +329,87 @@
           document.getElementById("short").value = payload.short_description || "";
           document.getElementById("tags").value = Array.isArray(payload.seo_tags) ? payload.seo_tags.join(", ") : "";
           quill.root.innerHTML = payload.long_description || "";
+          if (Array.isArray(payload.review_comment_anchors)) {
+            const anchors = new Map(payload.review_comment_anchors.map((anchor) => [String(anchor.id), anchor]));
+            reviewComments.forEach((comment) => Object.assign(comment, anchors.get(String(comment.id)) || {}));
+          }
+          const text = quill.getText().replace(/\n$/, "");
+          reviewComments.forEach((comment) => REVIEW_COMMENTS.reanchor(comment, text));
+          REVIEW_COMMENTS.applyHighlights(quill, reviewComments, activeCommentId);
           renderShortCount();
           renderLongCount();
         };
+
+        function focusWriterComment(comment) {
+          if (comment.anchor_state === "missing") return;
+          activeCommentId = comment.id;
+          REVIEW_COMMENTS.applyHighlights(quill, reviewComments, activeCommentId);
+          const leaf = quill.getLeaf(Number(comment.anchor_start || 0));
+          const node = leaf?.[0]?.domNode;
+          const target = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+          target?.scrollIntoView({ behavior: "smooth", block: "center" });
+          renderWriterComments();
+        }
+
+        function renderWriterComments() {
+          const panel = document.getElementById("writerReviewComments");
+          const list = document.getElementById("writerCommentList");
+          panel.classList.toggle("hidden", reviewComments.length === 0);
+          document.getElementById("writerCommentCount").textContent = String(reviewComments.length);
+          list.innerHTML = reviewComments.map((comment, index) => `
+            <article class="writer-review-comment ${activeCommentId === comment.id ? "is-active" : ""} ${comment.status === "addressed" ? "is-addressed" : ""}" data-writer-comment="${APP.escapeHtml(comment.id)}">
+              <button class="writer-review-comment-main" type="button" data-focus-writer-comment="${APP.escapeHtml(comment.id)}">
+                <span class="review-comment-number">${index + 1}</span>
+                <span>
+                  <span class="review-comment-round">Round ${comment.review_round}</span>
+                  <span class="review-comment-quote-small">“${APP.escapeHtml(comment.selected_text)}”</span>
+                  <strong>${APP.escapeHtml(comment.comment_text)}</strong>
+                  ${comment.anchor_state === "missing" ? `<em>This passage has changed. Use the quoted text as a reference.</em>` : ""}
+                </span>
+              </button>
+              ${commentEditingAllowed ? `<button class="secondary writer-comment-status" type="button" data-toggle-comment="${APP.escapeHtml(comment.id)}">
+                <span class="material-symbols-outlined" aria-hidden="true">${comment.status === "addressed" ? "undo" : "check_circle"}</span>
+                ${comment.status === "addressed" ? "Reopen" : "Mark addressed"}
+              </button>` : `<div class="writer-comment-readonly-status">${comment.status === "addressed" ? "Addressed" : "Open"}</div>`}
+            </article>`).join("");
+          for (const button of list.querySelectorAll("[data-focus-writer-comment]")) {
+            button.onclick = () => {
+              const comment = reviewComments.find((item) => String(item.id) === String(button.getAttribute("data-focus-writer-comment")));
+              if (comment) focusWriterComment(comment);
+            };
+          }
+          for (const button of list.querySelectorAll("[data-toggle-comment]")) {
+            button.onclick = async () => {
+              const comment = reviewComments.find((item) => String(item.id) === String(button.getAttribute("data-toggle-comment")));
+              if (!comment) return;
+              try {
+                const nextStatus = comment.status === "addressed" ? "open" : "addressed";
+                const out = await APP.apiFetch(`/api/articles/${encodeURIComponent(id)}/review-comments/${encodeURIComponent(comment.id)}`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ status: nextStatus })
+                });
+                Object.assign(comment, out.comment);
+                renderWriterComments();
+                msg(nextStatus === "addressed" ? "Comment marked addressed." : "Comment reopened.");
+              } catch (e) {
+                msg(e.message || String(e));
+              }
+            };
+          }
+          REVIEW_COMMENTS.applyHighlights(quill, reviewComments, activeCommentId);
+        }
+
+        async function loadWriterComments() {
+          try {
+            const out = await APP.apiFetch(`/api/articles/${encodeURIComponent(id)}/review-comments`);
+            const text = quill.getText().replace(/\n$/, "");
+            reviewComments = (out.comments || []).map((comment) => REVIEW_COMMENTS.reanchor(comment, text));
+          } catch (e) {
+            reviewComments = [];
+            msg(e.message || String(e));
+          }
+          renderWriterComments();
+        }
 
         const showNetworkToast = (title, body, mode = "offline") => {
           const toast = document.getElementById("networkToast");
@@ -490,6 +599,8 @@
         document.getElementById("short").value = article.short_description || "";
         document.getElementById("tags").value = Array.isArray(article.seo_tags) ? article.seo_tags.join(", ") : "";
         quill.root.innerHTML = article.long_description || "";
+        commentEditingAllowed = article.status === "rework";
+        await loadWriterComments();
         document.getElementById("statusBadge").innerHTML = APP.badgeForStatus(article.status);
         document.getElementById("checks").innerHTML = `
           <span class="pill">AI: ${APP.checkBadge(article.ai_score)}</span>
@@ -560,9 +671,12 @@
           renderShortCount();
           scheduleAutosave();
         });
-        quill.on("text-change", (_delta, _oldDelta, source) => {
+        quill.on("text-change", (delta, _oldDelta, source) => {
           renderLongCount();
           if (source === "user") {
+            REVIEW_COMMENTS.transformAnchors(reviewComments, delta, quill.getText().replace(/\n$/, ""));
+            REVIEW_COMMENTS.applyHighlights(quill, reviewComments, activeCommentId);
+            renderWriterComments();
             scheduleAutosave();
           }
         });
