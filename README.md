@@ -289,10 +289,6 @@ Possible hosting approaches:
 - Docker-based deployment
 - Vercel for lightweight API/static hosting, with external services for heavier AI checks
 
-## License
-
-No license file is currently included. Add a license before promoting the repository as open source. MIT is usually the simplest choice for a public application template, but choose the license that matches your goals.
-
 ## Blog Ideas
 
 If you are writing about Real Write, useful technical angles include:
