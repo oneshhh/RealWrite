@@ -34,6 +34,49 @@
     return clone.innerHTML;
   }
 
+  function normalizedTextWithMap(value) {
+    const source = String(value || "");
+    let normalized = "";
+    const starts = [];
+    const ends = [];
+    for (let index = 0; index < source.length; index += 1) {
+      const character = source[index];
+      const isWord = /[\p{L}\p{N}]/u.test(character);
+      if (isWord) {
+        normalized += character.toLocaleLowerCase();
+        starts.push(index);
+        ends.push(index + 1);
+      } else if (normalized && normalized[normalized.length - 1] !== " ") {
+        normalized += " ";
+        starts.push(index);
+        ends.push(index + 1);
+      } else if (normalized) {
+        ends[ends.length - 1] = index + 1;
+      }
+    }
+    if (normalized.endsWith(" ")) {
+      normalized = normalized.slice(0, -1);
+      starts.pop();
+      ends.pop();
+    }
+    return { normalized, starts, ends };
+  }
+
+  function normalizedMatches(text, quote) {
+    const source = normalizedTextWithMap(text);
+    const needle = normalizedTextWithMap(quote).normalized;
+    if (!needle) return [];
+    const matches = [];
+    let at = source.normalized.indexOf(needle);
+    while (at !== -1 && matches.length < 100) {
+      const start = source.starts[at];
+      const end = source.ends[at + needle.length - 1];
+      if (Number.isInteger(start) && Number.isInteger(end) && end > start) matches.push({ start, length: end - start });
+      at = source.normalized.indexOf(needle, at + 1);
+    }
+    return matches;
+  }
+
   function reanchor(comment, text) {
     const quote = String(comment.selected_text || "");
     let start = Number(comment.anchor_start || 0);
@@ -44,20 +87,23 @@
       const matches = [];
       let at = text.indexOf(quote);
       while (at !== -1 && matches.length < 100) {
-        matches.push(at);
+        matches.push({ start: at, length: quote.length });
         at = text.indexOf(quote, at + 1);
       }
+      if (!matches.length) matches.push(...normalizedMatches(text, quote));
       if (matches.length) {
         const prefix = String(comment.prefix_text || "");
         const suffix = String(comment.suffix_text || "");
-        const score = (position) => {
+        const score = (match) => {
+          const position = match.start;
           let points = -Math.abs(position - start) / Math.max(text.length, 1);
           if (prefix && text.slice(Math.max(0, position - prefix.length), position) === prefix) points += 4;
-          if (suffix && text.slice(position + quote.length, position + quote.length + suffix.length) === suffix) points += 4;
+          if (suffix && text.slice(position + match.length, position + match.length + suffix.length) === suffix) points += 4;
           return points;
         };
-        start = matches.sort((a, b) => score(b) - score(a))[0];
-        length = quote.length;
+        const match = matches.sort((a, b) => score(b) - score(a))[0];
+        start = match.start;
+        length = match.length;
       } else {
         comment.anchor_state = "missing";
         return comment;

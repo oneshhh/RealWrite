@@ -3659,6 +3659,38 @@ button.planner-day {
   min-width: 0;
 }
 
+.review-selection-action {
+  position: fixed;
+  z-index: 240;
+  display: grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  background: #073c2f;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(3, 43, 32, 0.28);
+  cursor: pointer;
+  transform: translateY(0);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.review-selection-action:hover,
+.review-selection-action:focus-visible {
+  background: #0b513e;
+  box-shadow: 0 13px 28px rgba(3, 43, 32, 0.34);
+  transform: translateY(-2px);
+}
+
+.review-selection-action .material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+}
+
 .review-quill.ql-container {
   border: 0 !important;
   font-family: inherit;
@@ -3713,6 +3745,7 @@ button.planner-day {
   place-items: center;
   min-width: 34px;
   height: 34px;
+  padding: 0 12px;
   border-radius: 999px;
   background: #073c2f;
   color: white;
@@ -3909,6 +3942,42 @@ button.planner-day {
 
 .writer-review-document {
   min-width: 0;
+}
+
+.writer-review-document .rw-review-highlight {
+  background: transparent;
+  border-bottom-color: transparent;
+  box-shadow: none;
+  transition: background-color 2600ms ease, border-color 2600ms ease, box-shadow 2600ms ease;
+}
+
+.writer-review-document .rw-review-highlight.is-active {
+  background: rgba(255, 197, 61, 0.72);
+  border-bottom-color: rgba(170, 102, 0, 0.88);
+  box-shadow: 0 0 0 4px rgba(255, 197, 61, 0.22);
+  transition-duration: 180ms;
+}
+
+.writer-review-highlight-flash {
+  position: absolute;
+  z-index: 40;
+  display: block;
+  pointer-events: none;
+  border-bottom: 2px solid rgba(170, 102, 0, 0.88);
+  border-radius: 3px;
+  background: rgba(255, 197, 61, 0.42);
+  box-shadow: 0 0 0 3px rgba(255, 197, 61, 0.16);
+  animation: rw-writer-highlight-flash 12600ms linear forwards;
+}
+
+@keyframes rw-writer-highlight-flash {
+  0%,
+  79.36% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 @media (max-width: 980px) {

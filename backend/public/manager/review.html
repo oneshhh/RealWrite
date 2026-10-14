@@ -6,13 +6,13 @@
     <link rel="icon" type="image/png" href="/assets/realwrite-logo.png" />
     <link rel="apple-touch-icon" href="/assets/realwrite-logo.png" />
     <title>Real Write • Manager • Review</title>
-    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261007-inline-comments-1" />
+    <link rel="stylesheet" href="/assets/styles.css?v=ui-20261009-selection-action-1" />
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
     <script src="/shared/config.js"></script>
     <script src="/shared/app.js"></script>
     <script src="/shared/topbar.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
-    <script src="/shared/review-comments.js"></script>
+    <script src="/shared/review-comments.js?v=20261007-2"></script>
   </head>
   <body>
     <div class="topbar" id="topbar"></div>
@@ -79,7 +79,7 @@
               <div class="review-long-head">
                 <div>
                   <strong>Article</strong>
-                  <div class="muted">Select text to leave a precise change request.</div>
+                  <div class="muted">Select text, then use the comment icon to request a change.</div>
                 </div>
                 <button class="secondary editor-copy-btn" id="copyReviewLong" type="button">
                   <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
@@ -87,6 +87,15 @@
                 </button>
               </div>
               <div id="reviewEditor" class="review-quill"></div>
+              <button
+                class="review-selection-action hidden"
+                id="reviewSelectionAction"
+                type="button"
+                aria-label="Add a change request for the selected text"
+                title="Add change request"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">add_comment</span>
+              </button>
             </div>
             <aside class="review-comments-panel" aria-label="Inline review comments">
               <div class="review-comments-heading">
@@ -98,7 +107,7 @@
               </div>
               <div class="review-selection-hint" id="selectionHint">
                 <span class="material-symbols-outlined" aria-hidden="true">ink_highlighter</span>
-                Highlight a passage in the article to add a comment.
+                Select a passage, then click the comment icon beside it.
               </div>
               <div class="review-comment-composer hidden" id="commentComposer">
                 <div class="review-comment-quote" id="commentQuote"></div>
@@ -154,6 +163,8 @@
         let pendingSelection = null;
         let editingCommentId = null;
         let activeCommentId = null;
+        let selectionCandidate = null;
+        let selectionActionPointerDown = false;
 
         REVIEW_COMMENTS.register(Quill);
         const reviewQuill = new Quill("#reviewEditor", {
@@ -185,6 +196,7 @@
 
         function showQueue() {
           selected = null;
+          hideSelectionAction();
           queueCard.classList.remove("hidden");
           reviewCard.classList.add("hidden");
         }
@@ -255,6 +267,61 @@
           return [...savedComments.filter((comment) => comment.status !== "resolved"), ...draftComments];
         }
 
+        function hideSelectionAction({ keepCandidate = false } = {}) {
+          document.getElementById("reviewSelectionAction").classList.add("hidden");
+          if (!keepCandidate) selectionCandidate = null;
+        }
+
+        function selectedPassage(range) {
+          const text = reviewQuill.getText().replace(/\n$/, "");
+          const rawSelection = text.slice(range.index, range.index + range.length);
+          const selectedText = rawSelection.trim();
+          if (!selectedText) return null;
+          const leading = rawSelection.indexOf(selectedText);
+          const start = range.index + Math.max(0, leading);
+          return {
+            anchor_start: start,
+            anchor_length: selectedText.length,
+            selected_text: selectedText,
+            prefix_text: text.slice(Math.max(0, start - 80), start),
+            suffix_text: text.slice(start + selectedText.length, start + selectedText.length + 80)
+          };
+        }
+
+        function selectionEndRect(range) {
+          const browserSelection = window.getSelection();
+          if (browserSelection?.rangeCount && reviewQuill.root.contains(browserSelection.anchorNode)) {
+            const rects = Array.from(browserSelection.getRangeAt(0).getClientRects()).filter(
+              (rect) => rect.width || rect.height
+            );
+            if (rects.length) return rects[rects.length - 1];
+          }
+          const bounds = reviewQuill.getBounds(range.index, range.length);
+          const editorRect = reviewQuill.root.getBoundingClientRect();
+          return {
+            left: editorRect.left + bounds.left,
+            right: editorRect.left + bounds.left + bounds.width,
+            top: editorRect.top + bounds.top,
+            bottom: editorRect.top + bounds.top + bounds.height,
+            width: bounds.width,
+            height: bounds.height
+          };
+        }
+
+        function showSelectionAction(range) {
+          const action = document.getElementById("reviewSelectionAction");
+          const rect = selectionEndRect(range);
+          const size = 40;
+          const gap = 8;
+          let left = rect.right + gap;
+          if (left + size > window.innerWidth - gap) left = rect.left - size - gap;
+          left = Math.max(gap, Math.min(left, window.innerWidth - size - gap));
+          const top = Math.max(gap, Math.min(rect.top + (rect.height - size) / 2, window.innerHeight - size - gap));
+          action.style.left = `${Math.round(left)}px`;
+          action.style.top = `${Math.round(top)}px`;
+          action.classList.remove("hidden");
+        }
+
         function focusReviewComment(comment) {
           activeCommentId = comment.id;
           REVIEW_COMMENTS.applyHighlights(reviewQuill, currentHighlightComments(), activeCommentId);
@@ -313,6 +380,7 @@
         }
 
         function showCommentComposer(selection, comment = null) {
+          hideSelectionAction();
           pendingSelection = selection;
           editingCommentId = comment?.id || null;
           document.getElementById("commentQuote").textContent = `“${selection.selected_text}”`;
@@ -357,6 +425,7 @@
         }
 
         async function open(a) {
+          hideSelectionAction();
           const isSameArticle = selected?.id === a.id;
           selected = a;
           if (!isSameArticle) {
@@ -503,6 +572,17 @@
         document.getElementById("rework").onclick = () => act("rework");
         document.getElementById("copyReviewLong").onclick = copyLongDescription;
         document.getElementById("cancelComment").onclick = hideCommentComposer;
+        const reviewSelectionAction = document.getElementById("reviewSelectionAction");
+        reviewSelectionAction.addEventListener("pointerdown", (event) => {
+          selectionActionPointerDown = true;
+          event.preventDefault();
+        });
+        reviewSelectionAction.onclick = () => {
+          const selection = selectionCandidate ? { ...selectionCandidate } : null;
+          selectionActionPointerDown = false;
+          if (!selection) return;
+          showCommentComposer(selection);
+        };
         document.getElementById("saveComment").onclick = () => {
           const commentText = document.getElementById("commentText").value.trim();
           if (!pendingSelection || !commentText) {
@@ -536,20 +616,23 @@
           renderReviewComments();
         };
         reviewQuill.on("selection-change", (range) => {
-          if (!range || range.length < 1 || selected?.status !== "submitted") return;
-          const text = reviewQuill.getText().replace(/\n$/, "");
-          const selectedText = text.slice(range.index, range.index + range.length).trim();
-          if (!selectedText) return;
-          const leading = text.slice(range.index, range.index + range.length).indexOf(selectedText);
-          const start = range.index + Math.max(0, leading);
-          showCommentComposer({
-            anchor_start: start,
-            anchor_length: selectedText.length,
-            selected_text: selectedText,
-            prefix_text: text.slice(Math.max(0, start - 80), start),
-            suffix_text: text.slice(start + selectedText.length, start + selectedText.length + 80)
-          });
+          if (!range || range.length < 1 || selected?.status !== "submitted") {
+            if (!selectionActionPointerDown) hideSelectionAction();
+            return;
+          }
+          selectionCandidate = selectedPassage(range);
+          if (!selectionCandidate) {
+            hideSelectionAction();
+            return;
+          }
+          requestAnimationFrame(() => showSelectionAction(range));
         });
+        document.addEventListener("pointerdown", (event) => {
+          if (event.target.closest("#reviewSelectionAction") || event.target.closest("#reviewEditor")) return;
+          hideSelectionAction();
+        });
+        window.addEventListener("scroll", () => hideSelectionAction(), true);
+        window.addEventListener("resize", () => hideSelectionAction());
         for (const button of document.querySelectorAll("[data-download-format]")) {
           button.onclick = () => downloadArticle(button.getAttribute("data-download-format"));
         }
